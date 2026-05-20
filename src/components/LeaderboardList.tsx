@@ -46,7 +46,9 @@ export default function LeaderboardList({ students, onStudentClick }: Leaderboar
                 </div>
                 <div>
                   <span className="font-bold text-slate-800 text-lg group-hover:text-brand transition-colors">{student.name}</span>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{student.class}</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                    {student.mode === 'offline' ? '线下学员' : '线上学员'}
+                  </p>
                 </div>
               </div>
             </div>

@@ -12,7 +12,9 @@ export const STUDENTS_MOCK: Student[] = [
       { label: '按时签到', value: 2 },
       { label: '作业优秀', value: 5 },
       { label: '阅读打卡', value: 4 }
-    ]
+    ],
+    mode: 'online',
+    careTypes: ['zhongtuo']
   },
   {
     id: '2',
@@ -25,7 +27,9 @@ export const STUDENTS_MOCK: Student[] = [
       { label: '按时签到', value: 2 },
       { label: '作业优秀', value: 5 },
       { label: '纪律良好', value: 3 }
-    ]
+    ],
+    mode: 'offline',
+    careTypes: ['wantuo']
   },
   {
     id: '3',
@@ -34,7 +38,9 @@ export const STUDENTS_MOCK: Student[] = [
     class: '初二 (3) 班',
     points: 7890,
     recentPoints: 0,
-    activities: []
+    activities: [],
+    mode: 'online',
+    careTypes: ['zhongtuo', 'wantuo']
   },
   {
     id: '4',
@@ -46,7 +52,9 @@ export const STUDENTS_MOCK: Student[] = [
     activities: [
       { label: '按时签到', value: 2 },
       { label: '乐于助人', value: 2 }
-    ]
+    ],
+    mode: 'offline',
+    careTypes: []
   },
   {
     id: '5',
@@ -54,6 +62,8 @@ export const STUDENTS_MOCK: Student[] = [
     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Krystal',
     class: '初二 (3) 班',
     points: 6400,
+    mode: 'online',
+    careTypes: ['zhongtuo']
   },
   {
     id: '6',
@@ -61,6 +71,8 @@ export const STUDENTS_MOCK: Student[] = [
     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Mason',
     class: '初二 (3) 班',
     points: 5980,
+    mode: 'offline',
+    careTypes: ['wantuo']
   },
   {
     id: '7',
@@ -68,6 +80,8 @@ export const STUDENTS_MOCK: Student[] = [
     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Jack',
     class: '初二 (3) 班',
     points: 5500,
+    mode: 'online',
+    careTypes: ['zhongtuo', 'wantuo']
   },
   {
     id: '8',
@@ -75,6 +89,8 @@ export const STUDENTS_MOCK: Student[] = [
     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Oliver',
     class: '初二 (3) 班',
     points: 5100,
+    mode: 'offline',
+    careTypes: ['wantuo']
   },
   {
     id: '9',
@@ -82,6 +98,8 @@ export const STUDENTS_MOCK: Student[] = [
     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sophie',
     class: '初二 (3) 班',
     points: 4800,
+    mode: 'online',
+    careTypes: ['zhongtuo']
   },
   {
     id: '10',
@@ -89,6 +107,8 @@ export const STUDENTS_MOCK: Student[] = [
     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Liam',
     class: '初二 (1) 班',
     points: 4500,
+    mode: 'offline',
+    careTypes: ['zhongtuo']
   },
   {
     id: '11',
@@ -96,6 +116,8 @@ export const STUDENTS_MOCK: Student[] = [
     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Emma',
     class: '初二 (2) 班',
     points: 4200,
+    mode: 'online',
+    careTypes: ['wantuo']
   }
 ];
 

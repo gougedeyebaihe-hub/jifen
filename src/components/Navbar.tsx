@@ -14,6 +14,7 @@ export default function Navbar({ activeTab, setActiveTab, onLoginClick, user }: 
     { id: 'leaderboard', label: '积分榜' },
     { id: 'auction', label: '拍卖' },
     { id: 'shop', label: '兑换商城' },
+    { id: 'admin', label: '管理后台' },
   ];
 
   return (

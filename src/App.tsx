@@ -12,8 +12,9 @@ import RedeemDrawer from './components/RedeemDrawer';
 import AuctionBidDrawer from './components/AuctionBidDrawer';
 import HistoryModal from './components/HistoryModal';
 import LoginModal from './components/LoginModal';
+import AdminPanel from './components/AdminPanel';
 
-import { Tab, Reward, AuctionItem, Student } from './types';
+import { Tab, Reward, AuctionItem, Student, PointItem } from './types';
 import { STUDENTS_MOCK, REWARDS_MOCK, AUCTION_MOCK } from './constants';
 
 export default function App() {
@@ -32,10 +33,41 @@ export default function App() {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
 
+  // Core Persistent Local States
+  const [students, setStudents] = useState<Student[]>(STUDENTS_MOCK);
+  const [rewards, setRewards] = useState<Reward[]>(REWARDS_MOCK);
+  const [categories, setCategories] = useState<{ id: string; label: string }[]>([
+    { id: 'stationery', label: '文具用品' },
+    { id: 'campus', label: '校园特权' },
+    { id: 'electronics', label: '电子产品' },
+    { id: 'other', label: '其他福利' }
+  ]);
+  const [redemptions, setRedemptions] = useState<any[]>([
+    { id: 'red-1', studentName: '王美丽', rewardName: 'Lamy 钢笔', pointsPaid: 1500, time: '2026-05-20 10:05', status: '已发放' },
+    { id: 'red-2', studentName: '张晓明', rewardName: 'Kindle 阅读器', pointsPaid: 8000, time: '2026-05-20 09:40', status: '待发放' },
+    { id: 'red-3', studentName: '李思源', rewardName: '免做作业卡一次', pointsPaid: 3000, time: '2026-05-19 16:30', status: '已发放' }
+  ]);
+  const [pointLogs, setPointLogs] = useState<any[]>([
+    { id: 'log-1', studentName: '张晓明', activity: '作业优秀', points: 5, time: '2026-05-20 09:30', type: 'add' },
+    { id: 'log-2', studentName: '李思源', activity: '纪律良好', points: 3, time: '2026-05-20 08:20', type: 'add' },
+    { id: 'log-3', studentName: '王美丽', activity: '兑换 Lamy 钢笔', points: -1500, time: '2026-05-19 16:45', type: 'deduct' }
+  ]);
+
+  const [pointItems, setPointItems] = useState<PointItem[]>([
+    { id: 'pi-1', label: '按时签到', value: 2, type: 'default' },
+    { id: 'pi-2', label: '作业优秀', value: 5, type: 'default' },
+    { id: 'pi-3', label: '阅读打卡', value: 4, type: 'default' },
+    { id: 'pi-4', label: '纪律良好', value: 3, type: 'other' },
+    { id: 'pi-5', label: '乐于助人', value: 2, type: 'other' },
+    { id: 'pi-6', label: '未交作业', value: 5, type: 'deduct' },
+    { id: 'pi-7', label: '课堂分心', value: 2, type: 'deduct' },
+    { id: 'pi-8', label: '迟到/旷课', value: 5, type: 'deduct' }
+  ]);
+
   const filteredRewards = useMemo(() => {
-    if (rewardCategory === 'all') return REWARDS_MOCK;
-    return REWARDS_MOCK.filter(r => r.category === rewardCategory);
-  }, [rewardCategory]);
+    if (rewardCategory === 'all') return rewards;
+    return rewards.filter(r => r.category === rewardCategory);
+  }, [rewards, rewardCategory]);
 
   const handleRedeem = (reward: Reward) => {
     setSelectedReward(reward);
@@ -43,8 +75,49 @@ export default function App() {
   };
 
   const handleConfirmRedemption = (studentIds: string[]) => {
-    toast.success(`成功为 ${studentIds.length} 名学生兑换 ${selectedReward?.name}`, {
-      description: `消耗总计 ${studentIds.length * (selectedReward?.points || 0)} 积分`,
+    if (!selectedReward) return;
+    const itemCost = selectedReward.points;
+    const totalCost = studentIds.length * itemCost;
+
+    // Deduct student points
+    setStudents(prev => prev.map(s => {
+      if (studentIds.includes(s.id)) {
+        return {
+          ...s,
+          points: Math.max(0, s.points - itemCost)
+        };
+      }
+      return s;
+    }));
+
+    // Add Redemption Records & Point change logs
+    studentIds.forEach(id => {
+      const student = students.find(s => s.id === id);
+      if (!student) return;
+
+      const newRed = {
+        id: `red-${Date.now()}-${id}`,
+        studentName: student.name,
+        rewardName: selectedReward.name,
+        pointsPaid: itemCost,
+        time: new Date().toISOString().replace('T', ' ').slice(0, 16),
+        status: '待发放' as const
+      };
+      setRedemptions(prev => [newRed, ...prev]);
+
+      const newLog = {
+        id: `log-${Date.now()}-${id}`,
+        studentName: student.name,
+        activity: `兑换礼品: ${selectedReward.name}`,
+        points: -itemCost,
+        time: new Date().toISOString().replace('T', ' ').slice(0, 16),
+        type: 'deduct' as const
+      };
+      setPointLogs(prev => [newLog, ...prev]);
+    });
+
+    toast.success(`成功为 ${studentIds.length} 名学生兑换 ${selectedReward.name}`, {
+      description: `消耗总计 ${totalCost} 积分`,
       icon: <ShoppingBag className="w-4 h-4 text-emerald-500" />
     });
     setIsDrawerOpen(false);
@@ -56,7 +129,7 @@ export default function App() {
   };
 
   const handleConfirmBid = (studentId: string, amount: number) => {
-    const student = STUDENTS_MOCK.find(s => s.id === studentId);
+    const student = students.find(s => s.id === studentId);
     toast.success(`竞拍出价提交成功！`, {
       description: `${student?.name} 对 ${selectedAuctionItem?.name} 出价 ${amount} pts`,
       icon: <Gavel className="w-4 h-4 text-brand" />
@@ -64,13 +137,33 @@ export default function App() {
     setIsAuctionDrawerOpen(false);
   };
 
-  const handleQuickAdd = (studentId: string, points: number) => {
-    const student = STUDENTS_MOCK.find(s => s.id === studentId);
+  const handleQuickAdd = (studentId: string, points: number, reason?: string) => {
+    setStudents(prev => prev.map(s => {
+      if (s.id === studentId) {
+        return { ...s, points: s.points + points };
+      }
+      return s;
+    }));
+
+    const student = students.find(s => s.id === studentId);
+    if (!student) return;
+
+    // Log Point change
+    const newLog = {
+      id: `log-${Date.now()}`,
+      studentName: student.name,
+      activity: reason || '快捷加分发放',
+      points: points,
+      time: new Date().toISOString().replace('T', ' ').slice(0, 16),
+      type: 'add' as const
+    };
+    setPointLogs(prev => [newLog, ...prev]);
+
     toast.success(`积分发放成功！`, {
-      description: `已为 ${student?.name} 添加 ${points} pts`,
+      description: `已为 ${student.name} 添加 ${points} pts`,
       action: {
         label: '查看记录',
-        onClick: () => handleViewHistory(student!)
+        onClick: () => handleViewHistory(student)
       }
     });
   };
@@ -122,8 +215,8 @@ export default function App() {
                   <h1 className="text-6xl font-black text-brand mb-4 tracking-tighter">积分榜</h1>
                   <p className="text-slate-500 text-lg font-medium">本学期实时积分排行</p>
                 </div>
-                <Podium topStudents={STUDENTS_MOCK} onStudentClick={handleViewHistory} />
-                <LeaderboardList students={STUDENTS_MOCK} onStudentClick={handleViewHistory} />
+                <Podium topStudents={students} onStudentClick={handleViewHistory} />
+                <LeaderboardList students={students} onStudentClick={handleViewHistory} />
               </div>
 
               <div className="lg:w-3/5">
@@ -295,10 +388,11 @@ export default function App() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                {STUDENTS_MOCK.map((student) => (
+                {students.map((student) => (
                   <BatchActionCard 
                     key={student.id} 
                     student={student} 
+                    pointItems={pointItems}
                     onQuickAdd={handleQuickAdd}
                     onViewHistory={handleViewHistory}
                   />
@@ -397,6 +491,31 @@ export default function App() {
                   ))}
                 </div>
               </div>
+            </motion.section>
+          )}
+
+          {activeTab === 'admin' && (
+            <motion.section
+              key="admin"
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              className="w-full"
+            >
+              <AdminPanel 
+                students={students}
+                setStudents={setStudents}
+                rewards={rewards}
+                setRewards={setRewards}
+                categories={categories}
+                setCategories={setCategories}
+                redemptions={redemptions}
+                setRedemptions={setRedemptions}
+                pointLogs={pointLogs}
+                setPointLogs={setPointLogs}
+                pointItems={pointItems}
+                setPointItems={setPointItems}
+              />
             </motion.section>
           )}
         </AnimatePresence>

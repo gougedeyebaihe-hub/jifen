@@ -109,7 +109,7 @@ export default function RedeemDrawer({ isOpen, onClose, reward, onConfirm }: Red
                       </div>
                       <div>
                         <h3 className={`font-bold text-lg leading-none mb-1 transition-colors ${isSelected ? 'text-brand' : 'text-slate-800'}`}>{student.name}</h3>
-                        <p className="text-xs text-slate-400 font-medium">{student.class}</p>
+                        <p className="text-xs text-slate-400 font-medium">当前积分: {student.points.toLocaleString()} pts</p>
                       </div>
                     </div>
                     <input 

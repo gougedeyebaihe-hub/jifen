@@ -1,18 +1,24 @@
 import { useState } from 'react';
-import { Student } from '../types';
+import { Student, PointItem } from '../types';
 import { MousePointer2, CheckCircle2, Check } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface BatchActionCardProps {
   key?: string | number;
   student: Student;
-  onQuickAdd: (id: string, points: number) => void;
+  pointItems?: PointItem[];
+  onQuickAdd: (id: string, points: number, reason?: string) => void;
   onViewHistory: (student: Student) => void;
 }
 
-export default function BatchActionCard({ student, onQuickAdd, onViewHistory }: BatchActionCardProps) {
+export default function BatchActionCard({ student, pointItems, onQuickAdd, onViewHistory }: BatchActionCardProps) {
+  // Map dynamic point items or fallback to student activities
+  const activeActivities = pointItems && pointItems.length > 0
+    ? pointItems.filter(p => p.type === 'default').map(p => ({ label: p.label, value: p.value }))
+    : (student.activities || []);
+
   const [selectedActivities, setSelectedActivities] = useState<number[]>(
-    student.activities ? student.activities.map((_, i) => i) : []
+    activeActivities.map((_, i) => i)
   );
 
   const toggleActivity = (idx: number) => {
@@ -22,10 +28,18 @@ export default function BatchActionCard({ student, onQuickAdd, onViewHistory }: 
   };
 
   const currentTotal = selectedActivities.reduce((acc, idx) => {
-    return acc + (student.activities?.[idx]?.value || 0);
+    return acc + (activeActivities[idx]?.value || 0);
   }, 0);
 
-  const hasPoints = student.activities && student.activities.length > 0;
+  const hasPoints = activeActivities.length > 0;
+
+  const handleSend = () => {
+    const selectedLabels = selectedActivities
+      .map(idx => activeActivities[idx]?.label)
+      .filter(Boolean)
+      .join(' & ');
+    onQuickAdd(student.id, currentTotal, selectedLabels || '快捷部分加分');
+  };
 
   return (
     <motion.div 
@@ -37,7 +51,7 @@ export default function BatchActionCard({ student, onQuickAdd, onViewHistory }: 
           <img src={student.avatar} alt={student.name} className="w-14 h-14 rounded-full border-2 border-brand-light shadow-sm" />
           <div>
             <h3 className="font-bold text-slate-800 text-xl">{student.name}</h3>
-            <p className="text-slate-400 text-xs font-medium">{student.class}</p>
+            <p className="text-slate-400 text-xs font-medium">{student.mode === 'offline' ? '线下课程' : '线上课程'}</p>
           </div>
         </div>
         <div className="bg-orange-50 text-orange-600 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1">
@@ -54,7 +68,7 @@ export default function BatchActionCard({ student, onQuickAdd, onViewHistory }: 
               <span>默认加分项 (多选)</span>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              {student.activities?.map((act, idx) => {
+              {activeActivities.map((act, idx) => {
                 const isSelected = selectedActivities.includes(idx);
                 return (
                   <button 
@@ -94,7 +108,7 @@ export default function BatchActionCard({ student, onQuickAdd, onViewHistory }: 
         
         {hasPoints ? (
           <button 
-            onClick={() => onQuickAdd(student.id, currentTotal)}
+            onClick={handleSend}
             disabled={currentTotal === 0}
             className={`px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all shadow-md ${
               currentTotal > 0 
