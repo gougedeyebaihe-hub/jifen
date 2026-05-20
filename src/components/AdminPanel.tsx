@@ -4,9 +4,9 @@ import {
   Users, Gift, Tags, ClipboardList, History, 
   Plus, Edit2, Trash2, Search, Check, AlertCircle, 
   ArrowUpRight, ArrowDownRight, Award, PlusCircle, MinusCircle,
-  Clock, Calendar, User, Upload, Image, X
+  Clock, Calendar, User, Upload, Image, X, Gavel, Trophy
 } from 'lucide-react';
-import { Student, Reward, PointItem } from '../types';
+import { Student, Reward, PointItem, AuctionItem } from '../types';
 import { toast } from 'sonner';
 
 interface Category {
@@ -45,6 +45,8 @@ interface AdminPanelProps {
   setPointLogs: React.Dispatch<React.SetStateAction<PointLog[]>>;
   pointItems: PointItem[];
   setPointItems: React.Dispatch<React.SetStateAction<PointItem[]>>;
+  auctions: AuctionItem[];
+  setAuctions: React.Dispatch<React.SetStateAction<AuctionItem[]>>;
 }
 
 export default function AdminPanel({
@@ -59,9 +61,11 @@ export default function AdminPanel({
   pointLogs,
   setPointLogs,
   pointItems,
-  setPointItems
+  setPointItems,
+  auctions,
+  setAuctions
 }: AdminPanelProps) {
-  const [subTab, setSubTab] = useState<'students' | 'rewards' | 'categories' | 'redemptions' | 'point-logs'>('students');
+  const [subTab, setSubTab] = useState<'students' | 'rewards' | 'categories' | 'redemptions' | 'point-logs' | 'auctions'>('students');
 
   // Search/Filter States
   const [studentSearch, setStudentSearch] = useState('');
@@ -115,10 +119,35 @@ export default function AdminPanel({
   // Delete confirmation state
   const [deleteConfirm, setDeleteConfirm] = useState<{
     isOpen: boolean;
-    type: 'student' | 'reward' | 'category' | 'pointItem' | '';
+    type: 'student' | 'reward' | 'category' | 'pointItem' | 'auction' | '';
     id: string;
     name: string;
   }>({ isOpen: false, type: '', id: '', name: '' });
+
+  // Auction management state
+  const [auctionSearch, setAuctionSearch] = useState('');
+  const [auctionStatusFilter, setAuctionStatusFilter] = useState<'all' | 'active' | 'finished'>('all');
+  const [isAuctionModalOpen, setIsAuctionModalOpen] = useState(false);
+  const [editingAuction, setEditingAuction] = useState<AuctionItem | null>(null);
+  const [auctionForm, setAuctionForm] = useState<{
+    name: string;
+    description: string;
+    image: string;
+    minPoints: number;
+    currentBid: number;
+    endTime: string;
+    status: 'active' | 'finished';
+    winner: string;
+  }>({
+    name: '',
+    description: '',
+    image: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=400',
+    minPoints: 10,
+    currentBid: 0,
+    endTime: '2026-05-31 18:00',
+    status: 'active',
+    winner: ''
+  });
 
   // Filtered Lists
   const filteredStudents = useMemo(() => {
@@ -150,6 +179,111 @@ export default function AdminPanel({
       l.activity.toLowerCase().includes(logSearch.toLowerCase())
     ).sort((a,b) => b.time.localeCompare(a.time));
   }, [pointLogs, logSearch]);
+
+  const filteredAuctions = useMemo(() => {
+    return auctions.filter(a => 
+      a.name.toLowerCase().includes(auctionSearch.toLowerCase()) ||
+      a.description.toLowerCase().includes(auctionSearch.toLowerCase())
+    );
+  }, [auctions, auctionSearch]);
+
+  // AUCTION ACTIONS
+  const openAddAuction = () => {
+    setEditingAuction(null);
+    setAuctionForm({
+      name: '',
+      description: '',
+      image: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=400',
+      minPoints: 10,
+      currentBid: 0,
+      endTime: '2026-05-31 18:00',
+      status: 'active',
+      winner: ''
+    });
+    setIsAuctionModalOpen(true);
+  };
+
+  const openEditAuction = (item: AuctionItem) => {
+    setEditingAuction(item);
+    setAuctionForm({
+      name: item.name,
+      description: item.description,
+      image: item.image,
+      minPoints: item.minPoints,
+      currentBid: item.currentBid,
+      endTime: item.endTime,
+      status: item.status,
+      winner: item.winner || ''
+    });
+    setIsAuctionModalOpen(true);
+  };
+
+  const handleAuctionSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!auctionForm.name.trim()) {
+      toast.error('请输入商品名称');
+      return;
+    }
+
+    if (editingAuction) {
+      setAuctions(prev => prev.map(a => a.id === editingAuction.id ? {
+        ...a,
+        name: auctionForm.name.trim(),
+        description: auctionForm.description.trim(),
+        image: auctionForm.image,
+        minPoints: Number(auctionForm.minPoints),
+        currentBid: Number(auctionForm.currentBid),
+        endTime: auctionForm.endTime,
+        status: auctionForm.status,
+        winner: auctionForm.winner.trim() || undefined
+      } : a));
+      toast.success(`拍卖品 [${auctionForm.name}] 信息已更新`);
+    } else {
+      const newId = `auc-${Date.now()}`;
+      setAuctions(prev => [
+        ...prev,
+        {
+          id: newId,
+          name: auctionForm.name.trim(),
+          description: auctionForm.description.trim(),
+          image: auctionForm.image,
+          minPoints: Number(auctionForm.minPoints),
+          currentBid: Number(auctionForm.currentBid),
+          endTime: auctionForm.endTime,
+          status: auctionForm.status,
+          winner: auctionForm.winner.trim() || undefined,
+          history: []
+        }
+      ]);
+      toast.success(`新拍卖品 [${auctionForm.name}] 已发布`);
+    }
+    setIsAuctionModalOpen(false);
+  };
+
+  const handleDeleteAuction = (id: string, name: string) => {
+    setDeleteConfirm({
+      isOpen: true,
+      type: 'auction',
+      id,
+      name
+    });
+  };
+
+  const handleAuctionImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        toast.error('图片大小不能超过 2MB');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAuctionForm(prev => ({ ...prev, image: reader.result as string }));
+        toast.success('商品图片上传并生成预览成功！');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   // STUDENT ACTIONS
   const openAddStudent = () => {
@@ -473,6 +607,9 @@ export default function AdminPanel({
     } else if (type === 'pointItem') {
       setPointItems(prev => prev.filter(pi => pi.id !== id));
       toast.success(`评分项 [${name}] 已成功删除`);
+    } else if (type === 'auction') {
+      setAuctions(prev => prev.filter(a => a.id !== id));
+      toast.success(`拍卖品 [${name}] 已成功删除`);
     }
 
     setDeleteConfirm({ isOpen: false, type: '', id: '', name: '' });
@@ -510,7 +647,8 @@ export default function AdminPanel({
           { id: 'rewards', label: '礼品管理', icon: Gift },
           { id: 'categories', label: '分类管理', icon: Tags },
           { id: 'redemptions', label: '兑换记录', icon: ClipboardList },
-          { id: 'point-logs', label: '积分日志', icon: History }
+          { id: 'point-logs', label: '积分日志', icon: History },
+          { id: 'auctions', label: '拍卖管理', icon: Gavel }
         ].map((item) => {
           const Icon = item.icon;
           const isActive = subTab === item.id;
@@ -1268,6 +1406,142 @@ export default function AdminPanel({
             </motion.div>
           )}
 
+          {/* ================= AUCTIONS PANEL ================= */}
+          {subTab === 'auctions' && (
+            <motion.div
+              key="auctions"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              className="space-y-6"
+            >
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex flex-col md:flex-row gap-3 w-full md:max-w-2xl">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      value={auctionSearch}
+                      onChange={(e) => setAuctionSearch(e.target.value)}
+                      placeholder="搜索拍卖品名称、商品描述..."
+                      className="w-full pl-11 pr-4 py-3 bg-white border border-slate-100 rounded-xl text-xs outline-none focus:ring-2 focus:ring-brand/20 transition-all font-medium"
+                    />
+                  </div>
+                  
+                  <div className="flex gap-1.5 self-start">
+                    {(['all', 'active', 'finished'] as const).map((status) => (
+                      <button
+                        key={status}
+                        onClick={() => setAuctionStatusFilter(status)}
+                        className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                          auctionStatusFilter === status 
+                            ? 'bg-slate-800 text-white' 
+                            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                        }`}
+                      >
+                        {status === 'all' ? '全部' : status === 'active' ? '进行中' : '已结束'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  onClick={openAddAuction}
+                  className="bg-brand hover:bg-brand-dark text-white px-6 py-3 rounded-xl text-xs font-bold transition-colors shadow-lg shadow-brand/10 hover:shadow-brand/20 active:scale-95 flex items-center gap-2 self-start md:self-auto"
+                >
+                  <Plus className="w-4 h-4" />
+                  上架拍卖商品
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredAuctions.filter(a => auctionStatusFilter === 'all' || a.status === auctionStatusFilter).map((item) => (
+                  <div key={item.id} className="bg-white border border-slate-100 rounded-[2rem] overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col justify-between group">
+                    <div>
+                      <div className="relative h-44 overflow-hidden bg-slate-100">
+                        <img 
+                          src={item.image} 
+                          alt={item.name} 
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className={`absolute top-4 left-4 px-3 py-1 rounded-full text-[10px] font-bold flex items-center gap-1.5 ${
+                          item.status === 'active' 
+                            ? 'bg-emerald-500 text-white' 
+                            : 'bg-slate-500 text-white'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${item.status === 'active' ? 'bg-white animate-ping' : 'bg-slate-300'}`} />
+                          {item.status === 'active' ? '正在竞拍' : '拍卖已结束'}
+                        </div>
+                      </div>
+
+                      <div className="p-6">
+                        <h4 className="font-black text-slate-800 text-lg mb-1.5">{item.name}</h4>
+                        <p className="text-slate-400 text-xs font-medium leading-relaxed mb-4 line-clamp-2">{item.description}</p>
+                        
+                        <div className="grid grid-cols-2 gap-4 bg-slate-50/50 p-4 rounded-2xl border border-slate-50">
+                          <div>
+                            <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider mb-0.5">起拍价</span>
+                            <span className="font-mono text-xs font-bold text-slate-500">{item.minPoints} 积分</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider mb-0.5">当前最高价</span>
+                            <span className="font-mono text-sm font-black text-brand italic">{item.currentBid} 积分</span>
+                          </div>
+                        </div>
+
+                        {item.winner && (
+                          <div className="mt-4 flex items-center gap-2 bg-amber-50/60 border border-amber-100/50 p-3 rounded-xl">
+                            <Trophy className="w-4 h-4 text-amber-500" />
+                            <div className="text-xs">
+                              <span className="text-slate-400 font-medium">得标人：</span>
+                              <span className="font-bold text-slate-700">{item.winner}</span>
+                            </div>
+                          </div>
+                        )}
+                        {!item.winner && item.status === 'finished' && (
+                          <div className="mt-4 flex items-center gap-2 bg-slate-50 border border-slate-100 p-3 rounded-xl">
+                            <span className="text-xs text-slate-400 font-medium italic">无得标人流拍</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="px-6 pb-6 pt-2 border-t border-slate-50 flex items-center justify-between gap-3">
+                      <div className="text-[10px] text-slate-400 font-medium">
+                        截止：{item.endTime}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => openEditAuction(item)}
+                          className="p-2.5 bg-slate-50 hover:bg-brand/10 text-slate-500 hover:text-brand rounded-xl transition-all"
+                          title="修改"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteAuction(item.id, item.name)}
+                          className="p-2.5 bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded-xl transition-all"
+                          title="删除"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {filteredAuctions.length === 0 && (
+                  <div className="col-span-full py-16 text-center bg-slate-50/50 rounded-3xl border border-dashed border-slate-200">
+                    <Gavel className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                    <p className="text-sm text-slate-400 font-bold">没有对应拍卖商品</p>
+                    <p className="text-xs text-slate-300 mt-1">上架一件极具吸引力的奖品来活跃气氛吧！</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
         </AnimatePresence>
       </div>
 
@@ -1859,6 +2133,134 @@ export default function AdminPanel({
         )}
       </AnimatePresence>
 
+      {/* 5. Auction Add/Edit Modal */}
+      <AnimatePresence>
+        {isAuctionModalOpen && (
+          <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsAuctionModalOpen(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ scale: 0.95, y: 20, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.95, y: 20, opacity: 0 }}
+              className="relative w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl p-8 overflow-y-auto max-h-[85vh] no-scrollbar"
+            >
+              <h3 className="text-2xl font-black text-slate-800 tracking-tight mb-2">
+                {editingAuction ? '修改拍卖品信息' : '发布新拍卖品'}
+              </h3>
+              <p className="text-slate-400 text-xs font-semibold mb-6">配置起拍卖和商品状态</p>
+
+              <form onSubmit={handleAuctionSubmit} className="space-y-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">商品名称</label>
+                  <input
+                    type="text"
+                    required
+                    value={auctionForm.name}
+                    onChange={(e) => setAuctionForm(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="例如：定制马克杯、免写一次卡..."
+                    className="w-full px-4 py-3.5 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-brand/20 transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">商品描述</label>
+                  <textarea
+                    value={auctionForm.description}
+                    onChange={(e) => setAuctionForm(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="输入商品说明、特殊属性描述..."
+                    rows={3}
+                    className="w-full px-4 py-3.5 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-brand/20 transition-all resize-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">起拍积分</label>
+                  <input
+                    type="number"
+                    required
+                    min={1}
+                    value={auctionForm.minPoints}
+                    onChange={(e) => setAuctionForm(prev => ({ ...prev, minPoints: Number(e.target.value) }))}
+                    className="w-full px-4 py-3.5 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-brand/20 transition-all font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">商品封面图片</label>
+                  
+                  {auctionForm.image ? (
+                    <div className="relative rounded-2xl overflow-hidden border border-slate-100 bg-slate-50 group">
+                      <img 
+                        src={auctionForm.image} 
+                        alt="商品预览" 
+                        className="w-full h-40 object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <label className="p-2.5 bg-white/95 hover:bg-white text-slate-800 rounded-xl shadow-md cursor-pointer transition-all hover:scale-105 inline-flex items-center gap-1.5 text-xs font-bold">
+                          <Upload className="w-4 h-4" />
+                          <span>重新上传</span>
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            onChange={handleAuctionImageUpload} 
+                            className="hidden" 
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setAuctionForm(prev => ({ ...prev, image: '' }))}
+                          className="p-2.5 bg-red-500/90 hover:bg-red-500 text-white rounded-xl shadow-md transition-all hover:scale-105 inline-flex items-center gap-1.5 text-xs font-bold animate-none"
+                        >
+                          <X className="w-4 h-4" />
+                          <span>删除</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 hover:border-brand/40 hover:bg-slate-50/50 rounded-2xl p-6 cursor-pointer transition-all group">
+                      <div className="w-12 h-12 rounded-xl bg-slate-50 group-hover:bg-brand/5 text-slate-400 group-hover:text-brand flex items-center justify-center mb-3 transition-colors">
+                        <Upload className="w-5 h-5" />
+                      </div>
+                      <span className="text-xs font-bold text-slate-600 group-hover:text-brand">点击选择或拖拽图片上传</span>
+                      <span className="text-[10px] text-slate-400 font-medium mt-1">支持 JPG, PNG, WEBP 格式，最大 2MB</span>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={handleAuctionImageUpload} 
+                        className="hidden" 
+                      />
+                    </label>
+                  )}
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsAuctionModalOpen(false)}
+                    className="flex-1 py-3.5 border border-slate-100 rounded-xl hover:bg-slate-50 transition-colors text-slate-500 font-bold text-sm"
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-3.5 bg-brand hover:bg-brand-dark text-white rounded-xl transition-colors font-bold text-sm shadow-md shadow-brand/10"
+                  >
+                    发布并上架
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* 6. Global Delete Confirmation Modal */}
       <AnimatePresence>
         {deleteConfirm.isOpen && (
@@ -1891,7 +2293,8 @@ export default function AdminPanel({
                   正在删除{
                     deleteConfirm.type === 'student' ? '学员' :
                     deleteConfirm.type === 'reward' ? '礼品' :
-                    deleteConfirm.type === 'category' ? '分类' : '评分项'
+                    deleteConfirm.type === 'category' ? '分类' :
+                    deleteConfirm.type === 'auction' ? '拍卖商品' : '评分项'
                   }
                 </p>
                 <p className="text-sm font-black text-red-600 truncate animate-none">

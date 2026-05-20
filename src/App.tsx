@@ -36,6 +36,10 @@ export default function App() {
   // Core Persistent Local States
   const [students, setStudents] = useState<Student[]>(STUDENTS_MOCK);
   const [rewards, setRewards] = useState<Reward[]>(REWARDS_MOCK);
+  const [auctions, setAuctions] = useState<AuctionItem[]>(() => [
+    ...AUCTION_MOCK.active.map(item => ({ ...item, status: 'active' as const })),
+    ...AUCTION_MOCK.finished.map(item => ({ ...item, status: 'finished' as const }))
+  ]);
   const [categories, setCategories] = useState<{ id: string; label: string }[]>([
     { id: 'stationery', label: '文具用品' },
     { id: 'campus', label: '校园特权' },
@@ -130,6 +134,14 @@ export default function App() {
 
   const handleConfirmBid = (studentId: string, amount: number) => {
     const student = students.find(s => s.id === studentId);
+    if (selectedAuctionItem) {
+      setAuctions(prev => prev.map(item => {
+        if (item.id === selectedAuctionItem.id) {
+          return { ...item, currentBid: amount };
+        }
+        return item;
+      }));
+    }
     toast.success(`竞拍出价提交成功！`, {
       description: `${student?.name} 对 ${selectedAuctionItem?.name} 出价 ${amount} pts`,
       icon: <Gavel className="w-4 h-4 text-brand" />
@@ -428,7 +440,7 @@ export default function App() {
                   <h2 className="text-4xl font-black text-slate-800 tracking-tight">正在拍卖</h2>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  {AUCTION_MOCK.active.map((item) => (
+                  {auctions.filter(item => item.status === 'active').map((item) => (
                     <div key={item.id} className="bg-white rounded-[2.5rem] p-2 shadow-card border border-slate-50 flex flex-col md:flex-row gap-6 hover:shadow-2xl transition-shadow group">
                       <div className="relative md:w-2/5 h-64 md:h-auto overflow-hidden rounded-[2rem]">
                         <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
@@ -471,19 +483,19 @@ export default function App() {
               <div className="bg-slate-100/50 p-10 rounded-[3.5rem] border border-white">
                 <div className="flex items-center gap-3 mb-8">
                   <div className="p-3 bg-slate-200 rounded-2xl">
-                    <History className="w-6 h-6 text-slate-500" />
+                     <History className="w-6 h-6 text-slate-500" />
                   </div>
                   <h2 className="text-3xl font-black text-slate-800 tracking-tight">往期拍卖记录</h2>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {AUCTION_MOCK.finished.map((item) => (
+                  {auctions.filter(item => item.status === 'finished').map((item) => (
                     <div key={item.id} className="bg-white rounded-3xl p-4 shadow-soft opacity-80 hover:opacity-100 transition-opacity">
                       <img src={item.image} alt={item.name} className="w-full h-40 object-cover rounded-2xl mb-4 grayscale group-hover:grayscale-0" />
                       <h4 className="font-bold text-slate-700 text-lg mb-1">{item.name}</h4>
                       <div className="flex items-center justify-between mt-4 bg-slate-50 p-3 rounded-xl">
                         <div className="flex items-center gap-2">
                            <Trophy className="w-4 h-4 text-orange-400" />
-                           <span className="text-xs font-bold text-brand">{item.winner}</span>
+                           <span className="text-xs font-bold text-brand">{item.winner || '无'}</span>
                         </div>
                         <span className="text-xs font-black text-slate-400">{item.currentBid} 积分</span>
                       </div>
@@ -515,6 +527,8 @@ export default function App() {
                 setPointLogs={setPointLogs}
                 pointItems={pointItems}
                 setPointItems={setPointItems}
+                auctions={auctions}
+                setAuctions={setAuctions}
               />
             </motion.section>
           )}
