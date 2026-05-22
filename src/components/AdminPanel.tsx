@@ -4,7 +4,7 @@ import {
   Users, Gift, Tags, ClipboardList, History, 
   Plus, Edit2, Trash2, Search, Check, AlertCircle, 
   ArrowUpRight, ArrowDownRight, Award, PlusCircle, MinusCircle,
-  Clock, Calendar, User, Upload, Image, X, Gavel, Trophy
+  Clock, Calendar, User, Upload, Image, X, Gavel, Trophy, Settings, RefreshCw, Lock
 } from 'lucide-react';
 import { Student, Reward, PointItem, AuctionItem } from '../types';
 import { toast } from 'sonner';
@@ -65,7 +65,7 @@ export default function AdminPanel({
   auctions,
   setAuctions
 }: AdminPanelProps) {
-  const [subTab, setSubTab] = useState<'students' | 'rewards' | 'categories' | 'redemptions' | 'point-logs' | 'auctions'>('students');
+  const [subTab, setSubTab] = useState<'students' | 'rewards' | 'categories' | 'redemptions' | 'point-logs' | 'auctions' | 'misc'>('students');
 
   // Search/Filter States
   const [studentSearch, setStudentSearch] = useState('');
@@ -148,6 +148,63 @@ export default function AdminPanel({
     status: 'active',
     winner: ''
   });
+
+  // 其他管理 (Misc Management) 状态与方法
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  
+  // 双重二次确认模式状态
+  const [isFirstConfirmOpen, setIsFirstConfirmOpen] = useState(false);
+  const [isSecondConfirmOpen, setIsSecondConfirmOpen] = useState(false);
+  const [typedConfirmation, setTypedConfirmation] = useState('');
+
+  const handlePasswordChange = (e: React.FormEvent) => {
+    e.preventDefault();
+    const savedPassword = localStorage.getItem('adminPassword') || 'admin123';
+    if (currentPassword !== savedPassword) {
+      toast.error('当前密码输入不正确！');
+      return;
+    }
+    if (newPassword.length < 4) {
+      toast.error('新密码长度不能少于 4 位数！');
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      toast.error('两次新密码输入不一致！');
+      return;
+    }
+    localStorage.setItem('adminPassword', newPassword);
+    toast.success('管理员密码修改成功！下次登录时生效。');
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmNewPassword('');
+  };
+
+  const triggerFirstConfirm = () => {
+    setIsFirstConfirmOpen(true);
+  };
+
+  const confirmFirstStep = () => {
+    setIsFirstConfirmOpen(false);
+    setIsSecondConfirmOpen(true);
+    setTypedConfirmation('');
+  };
+
+  const executeSemesterReset = () => {
+    if (typedConfirmation.trim().toUpperCase() !== 'RESET') {
+      toast.error('输入验证词语不匹配，操作已安全终止！');
+      return;
+    }
+
+    // 1. Clear point logs and redemption history completely for the new semester to prevent redudant data
+    setPointLogs([]);
+    setRedemptions([]);
+
+    setIsSecondConfirmOpen(false);
+    setTypedConfirmation('');
+    toast.success('历史记录重置成功！已彻底擦除本学期的积分变更日志与兑换流转历史，学员当前的积分余额安全保留。');
+  };
 
   // Filtered Lists
   const filteredStudents = useMemo(() => {
@@ -648,15 +705,16 @@ export default function AdminPanel({
           { id: 'categories', label: '分类管理', icon: Tags },
           { id: 'redemptions', label: '兑换记录', icon: ClipboardList },
           { id: 'point-logs', label: '积分日志', icon: History },
-          { id: 'auctions', label: '拍卖管理', icon: Gavel }
+          { id: 'auctions', label: '拍卖管理', icon: Gavel },
+          { id: 'misc', label: '其他管理', icon: Settings }
         ].map((item) => {
           const Icon = item.icon;
           const isActive = subTab === item.id;
           return (
             <button
-              key={item.id}
-              onClick={() => setSubTab(item.id as any)}
-              className={`flex items-center gap-2.5 px-6 py-4 rounded-2xl font-bold text-sm transition-all whitespace-nowrap ${
+               key={item.id}
+               onClick={() => setSubTab(item.id as any)}
+               className={`flex items-center gap-2.5 px-6 py-4 rounded-2xl font-bold text-sm transition-all whitespace-nowrap ${
                 isActive 
                   ? 'bg-brand text-white shadow-lg shadow-brand/20 scale-105'
                   : 'text-slate-500 hover:text-brand hover:bg-white'
@@ -684,17 +742,6 @@ export default function AdminPanel({
             >
               <div className="flex flex-col lg:flex-row justify-between gap-4 bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100">
                 <div className="flex flex-col md:flex-row gap-4 items-start md:items-center flex-1">
-                  <div className="relative w-full md:w-72">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                      type="text"
-                      value={studentSearch}
-                      onChange={(e) => setStudentSearch(e.target.value)}
-                      placeholder="输入姓名搜索学生..."
-                      className="w-full pl-11 pr-4 py-3 bg-white border border-slate-100 rounded-xl text-xs outline-none focus:ring-2 focus:ring-brand/20 transition-all font-semibold"
-                    />
-                  </div>
-
                   {/* Mode Filter */}
                   <div className="flex items-center gap-1.5 bg-white p-1 rounded-xl border border-slate-100 shrink-0">
                     <span className="text-[10px] text-slate-400 font-black px-2 whitespace-nowrap">上课模式:</span>
@@ -1542,6 +1589,138 @@ export default function AdminPanel({
             </motion.div>
           )}
 
+          {/* ================= OTHER MANAGEMENT PANEL ================= */}
+          {subTab === 'misc' && (
+            <motion.div
+              key="misc"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              className="grid grid-cols-1 lg:grid-cols-2 gap-8"
+            >
+              {/* Card 1: 修改密码 */}
+              <div className="bg-slate-50/50 border border-slate-100 rounded-[2.5rem] p-8 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center gap-4 mb-6">
+                    <span className="p-3 bg-brand/10 text-brand rounded-2xl">
+                      <Lock className="w-6 h-6" />
+                    </span>
+                    <div>
+                      <h4 className="font-black text-slate-800 text-xl">修改系统登录密码</h4>
+                      <p className="text-slate-400 text-xs font-semibold">修改后台管理者的安全校验登录密码</p>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handlePasswordChange} className="space-y-4">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">当前密码</label>
+                      <input
+                        type="password"
+                        required
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        placeholder="输入当前的管理员校验密码 (默认 admin123)"
+                        className="w-full px-4 py-3.5 bg-white border border-slate-100 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-brand/20 transition-all font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">新密码</label>
+                      <input
+                        type="password"
+                        required
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="设置不低于4位的新密码"
+                        className="w-full px-4 py-3.5 bg-white border border-slate-100 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-brand/20 transition-all font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">确认新密码</label>
+                      <input
+                        type="password"
+                        required
+                        value={confirmNewPassword}
+                        onChange={(e) => setConfirmNewPassword(e.target.value)}
+                        placeholder="再次输入新设置的密码"
+                        className="w-full px-4 py-3.5 bg-white border border-slate-100 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-brand/20 transition-all font-mono"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="w-full py-4 bg-brand hover:bg-brand-dark text-white rounded-2xl text-sm font-bold transition-all shadow-lg shadow-brand/10 hover:shadow-brand/20 active:scale-95"
+                    >
+                      提交修改密码
+                    </button>
+                  </form>
+                </div>
+              </div>
+
+              {/* Card 2: 新学期历史记录清除 */}
+              <div className="bg-slate-50/50 border border-slate-100 rounded-[2.5rem] p-8 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center gap-4 mb-6">
+                    <span className="p-3 bg-rose-500/10 text-rose-500 rounded-2xl">
+                      <RefreshCw className="w-6 h-6" />
+                    </span>
+                    <div>
+                      <h4 className="font-black text-slate-800 text-xl">新学期记录重置</h4>
+                      <p className="text-slate-400 text-xs font-semibold">清除本学期的冗余积分变动和兑换历史，不改动已有学员点数</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div className="bg-amber-50/85 border border-amber-100 p-5 rounded-2xl flex gap-3.5">
+                      <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="text-xs font-bold text-amber-800 block">数据优化提示（防止冗余）</span>
+                        <span className="text-[11px] text-amber-600 block leading-relaxed mt-1">
+                          此操作仅用于彻底清理本学期产生的历史痕迹与流水账目（日志、兑换申请），<strong>不会将学生已获得的可用积分归零</strong>。请放心执行。
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="bg-indigo-50/50 border border-indigo-100 p-5 rounded-2xl flex gap-3.5">
+                      <Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="text-xs font-bold text-emerald-800 block">积分安全保障</span>
+                        <span className="text-[11px] text-emerald-600 block leading-relaxed mt-1">
+                          各位学生的积分点数将被安全保留。此按钮只用来协助教师预防老学期数据的累积冗余。
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-100/50 rounded-2xl p-4 space-y-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-400 font-bold">受影响学员数量：</span>
+                        <span className="font-mono font-black text-slate-700">{students.length} 名学生</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-400 font-bold">学生目前可用积分：</span>
+                        <span className="font-mono font-bold text-teal-600">全面保留 (安全无损)</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-400 font-bold">一键清理账单流：</span>
+                        <span className="font-mono font-bold text-rose-500">积分变动日志、商品兑换历史</span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={triggerFirstConfirm}
+                      className="w-full py-4 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl text-sm font-bold transition-all shadow-lg shadow-rose-600/10 hover:shadow-rose-600/20 active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      一键清空本学期记录 (双重校验)
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
         </AnimatePresence>
       </div>
 
@@ -2319,6 +2498,140 @@ export default function AdminPanel({
                   className="flex-1 py-3.5 bg-red-500 hover:bg-red-600 text-white rounded-xl transition-colors font-bold text-sm cursor-pointer shadow-md shadow-red-500/10"
                 >
                   确定删除
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      {/* 7. New Semester Reset Modal - Step 1/2 */}
+      <AnimatePresence>
+        {isFirstConfirmOpen && (
+          <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsFirstConfirmOpen(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+            />
+            
+            <motion.div
+              initial={{ scale: 0.95, y: 20, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.95, y: 20, opacity: 0 }}
+              className="relative w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl p-8 overflow-hidden z-10 font-sans"
+            >
+              <div className="mx-auto w-14 h-14 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center mb-5">
+                <AlertCircle className="w-8 h-8" />
+              </div>
+
+              <h3 className="text-2xl font-black text-slate-800 tracking-tight text-center mb-1">
+                第一阶段：历史记录清理核实
+              </h3>
+              <p className="text-slate-400 text-xs font-semibold text-center mb-6">您即将彻底擦除本学期的变动明细与兑换流转单</p>
+
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-5 space-y-3.5 mb-6 text-sm">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-slate-400 font-bold">涉及学员总量</span>
+                  <span className="font-mono font-black text-slate-700">{students.length} 名学生</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-slate-400 font-bold">重置后学员积分</span>
+                  <span className="font-mono font-bold text-teal-600">全面安全保留 (不改变也绝不归零)</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-slate-400 font-bold">将被清理的数据</span>
+                  <span className="font-bold text-rose-600">
+                    全站积分变动日志、兑换历史明细
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsFirstConfirmOpen(false)}
+                  className="flex-1 py-3.5 border border-slate-100 rounded-xl hover:bg-slate-50 transition-colors text-slate-500 font-bold text-sm cursor-pointer"
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmFirstStep}
+                  className="flex-1 py-3.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl transition-colors font-bold text-sm cursor-pointer shadow-md shadow-rose-500/10"
+                >
+                  下一步 (风险确认)
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* 8. New Semester Reset Modal - Step 2/2 */}
+      <AnimatePresence>
+        {isSecondConfirmOpen && (
+          <div className="fixed inset-0 z-[310] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsSecondConfirmOpen(false)}
+              className="absolute inset-0 bg-slate-950/70 backdrop-blur-md"
+            />
+            
+            <motion.div
+              initial={{ scale: 0.95, y: 20, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.95, y: 20, opacity: 0 }}
+              className="relative w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl p-8 overflow-hidden z-10 border border-red-100 font-sans"
+            >
+              <div className="mx-auto w-14 h-14 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center mb-5">
+                <AlertCircle className="w-8 h-8 animate-bounce" />
+              </div>
+
+              <h3 className="text-2xl font-black text-rose-600 tracking-tight text-center mb-1">
+                核心警示：操作不可撤销
+              </h3>
+              <p className="text-slate-400 text-xs font-semibold text-center mb-6">此操作将清空整学期的变动明细与兑换流转单</p>
+
+              <div className="bg-rose-50/40 border border-rose-100/50 rounded-2xl p-5 mb-6">
+                <p className="text-xs text-rose-700 leading-relaxed font-bold text-center">
+                  确定要安全清理本学期的流通冗余记录吗？<strong>学生的当前拥有积分将被保留</strong>。如果您十分确定，请在下方手动输入安全校验词 <span className="underline select-all text-red-600 font-mono font-bold tracking-widest bg-white px-2 py-0.5 rounded border border-rose-200">RESET</span> 确认：
+                </p>
+              </div>
+
+              <div className="mb-6">
+                <input
+                  type="text"
+                  required
+                  value={typedConfirmation}
+                  onChange={(e) => setTypedConfirmation(e.target.value)}
+                  placeholder="手动输入 RESET 确认操作..."
+                  className="w-full text-center px-4 py-3.5 bg-slate-50 border-2 border-slate-200 focus:border-rose-500 rounded-xl text-sm font-bold uppercase outline-none transition-all font-mono tracking-widest text-rose-600"
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsSecondConfirmOpen(false)}
+                  className="flex-1 py-3.5 border border-slate-100 rounded-xl hover:bg-slate-50 transition-colors text-slate-500 font-bold text-sm cursor-pointer"
+                >
+                  放弃退出
+                </button>
+                <button
+                  type="button"
+                  disabled={typedConfirmation.trim().toUpperCase() !== 'RESET'}
+                  onClick={executeSemesterReset}
+                  className={`flex-1 py-3.5 rounded-xl transition-all font-bold text-sm shadow-md cursor-pointer ${
+                    typedConfirmation.trim().toUpperCase() === 'RESET'
+                      ? 'bg-rose-600 hover:bg-red-600 text-white shadow-rose-500/10'
+                      : 'bg-slate-100 text-slate-300 shadow-none cursor-not-allowed'
+                  }`}
+                >
+                  确定清理记录并重置
                 </button>
               </div>
             </motion.div>

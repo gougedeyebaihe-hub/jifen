@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Mail, Lock, ArrowRight, User, ShieldCheck } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -9,10 +10,19 @@ interface LoginModalProps {
 }
 
 export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const savedPassword = localStorage.getItem('adminPassword') || 'admin123';
+    if (password !== savedPassword) {
+      toast.error('登录密码错误，请重试！');
+      return;
+    }
     // Simulate login
     onLogin({ name: '教育管理者', role: 'admin' });
+    toast.success('登录成功，欢迎回来！');
     onClose();
   };
 
@@ -96,6 +106,9 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
                       <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-brand transition-colors" />
                       <input 
                         type="email" 
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         placeholder="电子邮箱" 
                         className="w-full pl-12 pr-4 py-4 bg-slate-50 border-none rounded-2xl text-sm outline-none focus:ring-2 focus:ring-brand/20 transition-all font-medium"
                       />
@@ -104,6 +117,9 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
                       <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-brand transition-colors" />
                       <input 
                         type="password" 
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
                         placeholder="密码" 
                         className="w-full pl-12 pr-4 py-4 bg-slate-50 border-none rounded-2xl text-sm outline-none focus:ring-2 focus:ring-brand/20 transition-all font-medium"
                       />
