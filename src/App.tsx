@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Bolt, Filter, ChevronRight, Zap, ShoppingBag, Clock, History, Trophy, Gavel, CheckCircle2, Palette } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
@@ -13,7 +13,8 @@ import AuctionBidDrawer from './components/AuctionBidDrawer';
 import HistoryModal from './components/HistoryModal';
 import LoginModal from './components/LoginModal';
 import AdminPanel from './components/AdminPanel';
-import AvatarShop from './components/AvatarShop';
+import AvatarShop, { CREATIVE_AVATARS, CreativeAvatar } from './components/AvatarShop';
+import ProgressOverlay from './components/ProgressOverlay';
 
 import { Tab, Reward, AuctionItem, Student, PointItem } from './types';
 import { STUDENTS_MOCK, REWARDS_MOCK, AUCTION_MOCK } from './constants';
@@ -75,6 +76,52 @@ export default function App() {
     { id: 'pi-8', label: '迟到/旷课', value: 5, type: 'deduct' }
   ]);
 
+  const [creativeAvatars, setCreativeAvatars] = useState<CreativeAvatar[]>(() => {
+    const saved = localStorage.getItem('creative_avatars_list');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        // Fallback
+      }
+    }
+    return CREATIVE_AVATARS;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('creative_avatars_list', JSON.stringify(creativeAvatars));
+  }, [creativeAvatars]);
+
+  // Global simulated frontend-backend progress loader state
+  const [globalProgress, setGlobalProgress] = useState<{
+    isOpen: boolean;
+    type: 'submit' | 'edit' | 'delete' | 'sync' | 'load';
+    title: string;
+    statusText: string;
+    actionFn: (() => void) | null;
+  }>({
+    isOpen: false,
+    type: 'submit',
+    title: '',
+    statusText: '',
+    actionFn: null
+  });
+
+  const runWithProgress = (
+    type: 'submit' | 'edit' | 'delete' | 'sync' | 'load',
+    title: string,
+    statusText: string,
+    actionFn: () => void
+  ) => {
+    setGlobalProgress({
+      isOpen: true,
+      type,
+      title,
+      statusText,
+      actionFn
+    });
+  };
+
   const filteredRewards = useMemo(() => {
     if (rewardCategory === 'all') return rewards;
     return rewards.filter(r => r.category === rewardCategory);
@@ -90,48 +137,50 @@ export default function App() {
     const itemCost = selectedReward.points;
     const totalCost = studentIds.length * itemCost;
 
-    // Deduct student points
-    setStudents(prev => prev.map(s => {
-      if (studentIds.includes(s.id)) {
-        return {
-          ...s,
-          points: Math.max(0, s.points - itemCost)
+    runWithProgress('submit', '确认礼品兑换', '扣减学生分值，更新兑换仓库库存与分值流水日志', () => {
+      // Deduct student points
+      setStudents(prev => prev.map(s => {
+        if (studentIds.includes(s.id)) {
+          return {
+            ...s,
+            points: Math.max(0, s.points - itemCost)
+          };
+        }
+        return s;
+      }));
+
+      // Add Redemption Records & Point change logs
+      studentIds.forEach(id => {
+        const student = students.find(s => s.id === id);
+        if (!student) return;
+
+        const newRed = {
+          id: `red-${Date.now()}-${id}`,
+          studentName: student.name,
+          rewardName: selectedReward.name,
+          pointsPaid: itemCost,
+          time: new Date().toISOString().replace('T', ' ').slice(0, 16),
+          status: '待发放' as const
         };
-      }
-      return s;
-    }));
+        setRedemptions(prev => [newRed, ...prev]);
 
-    // Add Redemption Records & Point change logs
-    studentIds.forEach(id => {
-      const student = students.find(s => s.id === id);
-      if (!student) return;
+        const newLog = {
+          id: `log-${Date.now()}-${id}`,
+          studentName: student.name,
+          activity: `兑换礼品: ${selectedReward.name}`,
+          points: -itemCost,
+          time: new Date().toISOString().replace('T', ' ').slice(0, 16),
+          type: 'deduct' as const
+        };
+        setPointLogs(prev => [newLog, ...prev]);
+      });
 
-      const newRed = {
-        id: `red-${Date.now()}-${id}`,
-        studentName: student.name,
-        rewardName: selectedReward.name,
-        pointsPaid: itemCost,
-        time: new Date().toISOString().replace('T', ' ').slice(0, 16),
-        status: '待发放' as const
-      };
-      setRedemptions(prev => [newRed, ...prev]);
-
-      const newLog = {
-        id: `log-${Date.now()}-${id}`,
-        studentName: student.name,
-        activity: `兑换礼品: ${selectedReward.name}`,
-        points: -itemCost,
-        time: new Date().toISOString().replace('T', ' ').slice(0, 16),
-        type: 'deduct' as const
-      };
-      setPointLogs(prev => [newLog, ...prev]);
+      toast.success(`成功为 ${studentIds.length} 名学生兑换 ${selectedReward.name}`, {
+        description: `消耗总计 ${totalCost} 积分`,
+        icon: <ShoppingBag className="w-4 h-4 text-emerald-500" />
+      });
+      setIsDrawerOpen(false);
     });
-
-    toast.success(`成功为 ${studentIds.length} 名学生兑换 ${selectedReward.name}`, {
-      description: `消耗总计 ${totalCost} 积分`,
-      icon: <ShoppingBag className="w-4 h-4 text-emerald-500" />
-    });
-    setIsDrawerOpen(false);
   };
 
   const handleOpenBid = (item: AuctionItem) => {
@@ -140,51 +189,60 @@ export default function App() {
   };
 
   const handleConfirmBid = (studentId: string, amount: number) => {
-    const student = students.find(s => s.id === studentId);
-    if (selectedAuctionItem) {
-      setAuctions(prev => prev.map(item => {
-        if (item.id === selectedAuctionItem.id) {
-          return { ...item, currentBid: amount };
-        }
-        return item;
-      }));
-    }
-    toast.success(`竞拍出价提交成功！`, {
-      description: `${student?.name} 对 ${selectedAuctionItem?.name} 出价 ${amount} pts`,
-      icon: <Gavel className="w-4 h-4 text-brand" />
+    runWithProgress('submit', '提交竞拍出价', '验签竞拍起拍价，发布最新高价至流式总线', () => {
+      const student = students.find(s => s.id === studentId);
+      if (selectedAuctionItem) {
+        setAuctions(prev => prev.map(item => {
+          if (item.id === selectedAuctionItem.id) {
+            return { ...item, currentBid: amount };
+          }
+          return item;
+        }));
+      }
+      toast.success(`竞拍出价提交成功！`, {
+        description: `${student?.name} 对 ${selectedAuctionItem?.name} 出价 ${amount} pts`,
+        icon: <Gavel className="w-4 h-4 text-brand" />
+      });
+      setIsAuctionDrawerOpen(false);
     });
-    setIsAuctionDrawerOpen(false);
   };
 
   const handleQuickAdd = (studentId: string, points: number, reason?: string) => {
-    setStudents(prev => prev.map(s => {
-      if (s.id === studentId) {
-        return { ...s, points: s.points + points };
-      }
-      return s;
-    }));
-
     const student = students.find(s => s.id === studentId);
     if (!student) return;
 
-    // Log Point change
-    const newLog = {
-      id: `log-${Date.now()}`,
-      studentName: student.name,
-      activity: reason || '快捷加分发放',
-      points: points,
-      time: new Date().toISOString().replace('T', ' ').slice(0, 16),
-      type: 'add' as const
-    };
-    setPointLogs(prev => [newLog, ...prev]);
+    runWithProgress(
+      points > 0 ? 'submit' : 'delete',
+      points > 0 ? '发放课堂奖赏积分' : '扣减惩戒分值',
+      '计算积分权重，写入分布式日志表单',
+      () => {
+        setStudents(prev => prev.map(s => {
+          if (s.id === studentId) {
+            return { ...s, points: Math.max(0, s.points + points) };
+          }
+          return s;
+        }));
 
-    toast.success(`积分发放成功！`, {
-      description: `已为 ${student.name} 添加 ${points} pts`,
-      action: {
-        label: '查看记录',
-        onClick: () => handleViewHistory(student)
+        // Log Point change
+        const newLog = {
+          id: `log-${Date.now()}`,
+          studentName: student.name,
+          activity: reason || (points > 0 ? '快捷加分发放' : '快捷扣分惩戒'),
+          points: points,
+          time: new Date().toISOString().replace('T', ' ').slice(0, 16),
+          type: points > 0 ? 'add' as const : 'deduct' as const
+        };
+        setPointLogs(prev => [newLog, ...prev]);
+
+        toast.success(points > 0 ? '积分发放成功！' : '分值扣减完成！', {
+          description: `已为 ${student.name} ${points > 0 ? `添加 ${points}` : `扣减 ${Math.abs(points)}`} pts`,
+          action: {
+            label: '查看记录',
+            onClick: () => handleViewHistory(student)
+          }
+        });
       }
-    });
+    );
   };
 
   const handleViewHistory = (student: Student) => {
@@ -195,32 +253,37 @@ export default function App() {
   };
 
   const handleUnlockAvatarSuccess = (studentName: string, avatarName: string, pointsPaid: number) => {
-    const newLog = {
-      id: `log-${Date.now()}`,
-      studentName: studentName,
-      activity: `解锁创意头像: ${avatarName}`,
-      points: -pointsPaid,
-      time: new Date().toISOString().replace('T', ' ').slice(0, 16),
-      type: 'deduct' as const
-    };
-    setPointLogs(prev => [newLog, ...prev]);
+    runWithProgress('submit', '解锁创意头像', '验签积分余额并写入学生创意衣橱', () => {
+      const newLog = {
+        id: `log-${Date.now()}`,
+        studentName: studentName,
+        activity: `解锁创意头像: ${avatarName}`,
+        points: -pointsPaid,
+        time: new Date().toISOString().replace('T', ' ').slice(0, 16),
+        type: 'deduct' as const
+      };
+      setPointLogs(prev => [newLog, ...prev]);
 
-    toast.success(`形象解锁成功！`, {
-      description: `${studentName} 成功花费 ${pointsPaid} 积分解锁并配戴【${avatarName}】🎨`,
-      icon: <Palette className="w-4 h-4 text-teal-500" />
+      toast.success(`形象解锁成功！`, {
+        description: `${studentName} 成功花费 ${pointsPaid} 积分解锁并配戴【${avatarName}】🎨`,
+        icon: <Palette className="w-4 h-4 text-teal-500" />
+      });
     });
   };
 
   const handleEquipAvatar = (studentId: string, avatarUrl: string) => {
-    setStudents(prev => prev.map(s => {
-      if (s.id === studentId) {
-        return { ...s, avatar: avatarUrl };
-      }
-      return s;
-    }));
-    
-    // Also update history mode modal visualization immediately
-    setHistoryStudent(prev => prev && prev.id === studentId ? { ...prev, avatar: avatarUrl } : prev);
+    runWithProgress('edit', '装配创意形象', '正在配置角色当前的展示图样...', () => {
+      setStudents(prev => prev.map(s => {
+        if (s.id === studentId) {
+          return { ...s, avatar: avatarUrl };
+        }
+        return s;
+      }));
+      
+      // Also update history mode modal visualization immediately
+      setHistoryStudent(prev => prev && prev.id === studentId ? { ...prev, avatar: avatarUrl } : prev);
+      toast.success('形象装配成功！已成功应用您选定的创意装扮。');
+    });
   };
 
   const handleLogin = (userData: any) => {
@@ -233,16 +296,36 @@ export default function App() {
   };
 
   const handleBatchConfirm = () => {
-    toast.promise(new Promise(resolve => setTimeout(resolve, 800)), {
-      loading: '正在同步积分数据...',
-      success: '本时段所有加分项已成功发放！',
-      error: '同步失败，请检查网络连接',
+    runWithProgress('sync', '全员期末加权积分考评', '批量同步中，正在为所有学生结算发放本期积分奖励...', () => {
+      toast.success('本学期全员积分数据同步考评并发放成功！');
     });
   };
 
   return (
     <div className="min-h-screen">
-      <Toaster position="top-center" richColors />
+      <Toaster 
+        position="top-center" 
+        richColors 
+        toastOptions={{
+          classNames: {
+            success: 'eye-catching-toast-success',
+            error: 'eye-catching-toast-error',
+            info: 'eye-catching-toast-info',
+          }
+        }}
+      />
+      <ProgressOverlay
+        isOpen={globalProgress.isOpen}
+        type={globalProgress.type}
+        title={globalProgress.title}
+        statusText={globalProgress.statusText}
+        onComplete={() => {
+          if (globalProgress.actionFn) {
+            globalProgress.actionFn();
+          }
+          setGlobalProgress(prev => ({ ...prev, isOpen: false, actionFn: null }));
+        }}
+      />
       <Navbar 
         activeTab={activeTab} 
         setActiveTab={setActiveTab} 
@@ -265,8 +348,8 @@ export default function App() {
                   <h1 className="text-6xl font-black text-brand mb-4 tracking-tighter">积分榜</h1>
                   <p className="text-slate-500 text-lg font-medium">本学期实时积分排行</p>
                 </div>
-                <Podium topStudents={students} onStudentClick={handleViewHistory} />
-                <LeaderboardList students={students} onStudentClick={handleViewHistory} />
+                <Podium topStudents={students} onStudentClick={handleViewHistory} creativeAvatars={creativeAvatars} />
+                <LeaderboardList students={students} onStudentClick={handleViewHistory} creativeAvatars={creativeAvatars} />
               </div>
 
               <div className="lg:w-3/5">
@@ -430,6 +513,7 @@ export default function App() {
                   students={students}
                   setStudents={setStudents}
                   onUnlockSuccess={handleUnlockAvatarSuccess}
+                  creativeAvatars={creativeAvatars}
                 />
               )}
             </motion.section>
@@ -604,6 +688,9 @@ export default function App() {
                 setPointItems={setPointItems}
                 auctions={auctions}
                 setAuctions={setAuctions}
+                creativeAvatars={creativeAvatars}
+                setCreativeAvatars={setCreativeAvatars}
+                runWithProgress={runWithProgress}
               />
             </motion.section>
           )}
@@ -630,6 +717,7 @@ export default function App() {
         student={historyStudent}
         pointLogs={pointLogs}
         onEquipAvatar={handleEquipAvatar}
+        creativeAvatars={creativeAvatars}
       />
 
       <LoginModal 

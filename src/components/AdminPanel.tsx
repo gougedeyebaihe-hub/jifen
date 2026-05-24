@@ -4,10 +4,12 @@ import {
   Users, Gift, Tags, ClipboardList, History, 
   Plus, Edit2, Trash2, Search, Check, AlertCircle, 
   ArrowUpRight, ArrowDownRight, Award, PlusCircle, MinusCircle,
-  Clock, Calendar, User, Upload, Image, X, Gavel, Trophy, Settings, RefreshCw, Lock
+  Clock, Calendar, User, Upload, Image, X, Gavel, Trophy, Settings, RefreshCw, Lock,
+  Palette, Sparkles, Coins
 } from 'lucide-react';
 import { Student, Reward, PointItem, AuctionItem } from '../types';
 import { toast } from 'sonner';
+import { CreativeAvatar } from './AvatarShop';
 
 interface Category {
   id: string;
@@ -47,6 +49,14 @@ interface AdminPanelProps {
   setPointItems: React.Dispatch<React.SetStateAction<PointItem[]>>;
   auctions: AuctionItem[];
   setAuctions: React.Dispatch<React.SetStateAction<AuctionItem[]>>;
+  creativeAvatars: CreativeAvatar[];
+  setCreativeAvatars: React.Dispatch<React.SetStateAction<CreativeAvatar[]>>;
+  runWithProgress: (
+    type: 'submit' | 'edit' | 'delete' | 'sync' | 'load',
+    title: string,
+    statusText: string,
+    actionFn: () => void
+  ) => void;
 }
 
 export default function AdminPanel({
@@ -63,9 +73,12 @@ export default function AdminPanel({
   pointItems,
   setPointItems,
   auctions,
-  setAuctions
+  setAuctions,
+  creativeAvatars,
+  setCreativeAvatars,
+  runWithProgress
 }: AdminPanelProps) {
-  const [subTab, setSubTab] = useState<'students' | 'rewards' | 'categories' | 'redemptions' | 'point-logs' | 'auctions' | 'misc'>('students');
+  const [subTab, setSubTab] = useState<'students' | 'rewards' | 'categories' | 'redemptions' | 'point-logs' | 'auctions' | 'avatars' | 'misc'>('students');
 
   // Search/Filter States
   const [studentSearch, setStudentSearch] = useState('');
@@ -123,10 +136,24 @@ export default function AdminPanel({
   // Delete confirmation state
   const [deleteConfirm, setDeleteConfirm] = useState<{
     isOpen: boolean;
-    type: 'student' | 'reward' | 'category' | 'pointItem' | 'auction' | '';
+    type: 'student' | 'reward' | 'category' | 'pointItem' | 'auction' | 'avatar' | '';
     id: string;
     name: string;
   }>({ isOpen: false, type: '', id: '', name: '' });
+
+  // Creative Avatars management state
+  const [avatarSearch, setAvatarSearch] = useState('');
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
+  const [editingAvatar, setEditingAvatar] = useState<CreativeAvatar | null>(null);
+  const [avatarForm, setAvatarForm] = useState({
+    name: '',
+    description: '',
+    pointsCost: 500,
+    avatarUrl: '',
+    theme: 'from-amber-400 to-yellow-500',
+    animationType: 'none' as 'float' | 'wobble' | 'pulse' | 'spin' | 'none',
+    badge: ''
+  });
 
   // Auction management state
   const [auctionSearch, setAuctionSearch] = useState('');
@@ -286,25 +313,17 @@ export default function AdminPanel({
       return;
     }
 
-    if (editingAuction) {
-      setAuctions(prev => prev.map(a => a.id === editingAuction.id ? {
-        ...a,
-        name: auctionForm.name.trim(),
-        description: auctionForm.description.trim(),
-        image: auctionForm.image,
-        minPoints: Number(auctionForm.minPoints),
-        currentBid: Number(auctionForm.currentBid),
-        endTime: auctionForm.endTime,
-        status: auctionForm.status,
-        winner: auctionForm.winner.trim() || undefined
-      } : a));
-      toast.success(`拍卖品 [${auctionForm.name}] 信息已更新`);
-    } else {
-      const newId = `auc-${Date.now()}`;
-      setAuctions(prev => [
-        ...prev,
-        {
-          id: newId,
+    const actionType = editingAuction ? 'edit' as const : 'submit' as const;
+    const actionTitle = editingAuction ? '更新竞拍品信息' : '创建新竞拍品';
+    const progressDesc = editingAuction ? '正在将修改同步至服务器并覆盖底层关联条目...' : '正在解析描述文件、打包媒体资源并写入库...';
+
+    // Close the modal immediately so it disappears before progress overlay loads
+    setIsAuctionModalOpen(false);
+
+    runWithProgress(actionType, actionTitle, progressDesc, () => {
+      if (editingAuction) {
+        setAuctions(prev => prev.map(a => a.id === editingAuction.id ? {
+          ...a,
           name: auctionForm.name.trim(),
           description: auctionForm.description.trim(),
           image: auctionForm.image,
@@ -312,13 +331,29 @@ export default function AdminPanel({
           currentBid: Number(auctionForm.currentBid),
           endTime: auctionForm.endTime,
           status: auctionForm.status,
-          winner: auctionForm.winner.trim() || undefined,
-          history: []
-        }
-      ]);
-      toast.success(`新拍卖品 [${auctionForm.name}] 已发布`);
-    }
-    setIsAuctionModalOpen(false);
+          winner: auctionForm.winner.trim() || undefined
+        } : a));
+        toast.success(`拍卖品 [${auctionForm.name}] 信息已更新`);
+      } else {
+        const newId = `auc-${Date.now()}`;
+        setAuctions(prev => [
+          ...prev,
+          {
+            id: newId,
+            name: auctionForm.name.trim(),
+            description: auctionForm.description.trim(),
+            image: auctionForm.image,
+            minPoints: Number(auctionForm.minPoints),
+            currentBid: Number(auctionForm.currentBid),
+            endTime: auctionForm.endTime,
+            status: auctionForm.status,
+            winner: auctionForm.winner.trim() || undefined,
+            history: []
+          }
+        ]);
+        toast.success(`新拍卖品 [${auctionForm.name}] 已发布`);
+      }
+    });
   };
 
   const handleDeleteAuction = (id: string, name: string) => {
@@ -372,37 +407,45 @@ export default function AdminPanel({
       return;
     }
 
-    if (editingStudent) {
-      // Update
-      setStudents(prev => prev.map(s => s.id === editingStudent.id ? {
-        ...s,
-        name: studentForm.name,
-        class: studentForm.class,
-        points: Number(studentForm.points),
-        mode: studentForm.mode,
-        careTypes: studentForm.careTypes
-      } : s));
-      toast.success(`学生 [${studentForm.name}] 信息更新成功`);
-    } else {
-      // Add
-      const newId = (students.length + 1).toString();
-      const newStudent: Student = {
-        id: newId,
-        name: studentForm.name,
-        class: studentForm.class,
-        points: Number(studentForm.points),
-        avatar: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Felix',
-        activities: [
-          { label: '按时签到', value: 2 },
-          { label: '作业优秀', value: 5 }
-        ],
-        mode: studentForm.mode,
-        careTypes: studentForm.careTypes
-      };
-      setStudents(prev => [...prev, newStudent]);
-      toast.success(`新学生 [${studentForm.name}] 录入成功`);
-    }
+    const actionType = editingStudent ? 'edit' as const : 'submit' as const;
+    const actionTitle = editingStudent ? '更新学生学籍信息' : '新学员档案录入';
+    const progressDesc = editingStudent ? '正在修改班级学籍、更新学员索引库...' : '正在初始化空档案、挂载基础评分项并创建专属角色...';
+
+    // Close the modal immediately so it disappears before progress overlay loads
     setIsStudentModalOpen(false);
+
+    runWithProgress(actionType, actionTitle, progressDesc, () => {
+      if (editingStudent) {
+        // Update
+        setStudents(prev => prev.map(s => s.id === editingStudent.id ? {
+          ...s,
+          name: studentForm.name,
+          class: studentForm.class,
+          points: Number(studentForm.points),
+          mode: studentForm.mode,
+          careTypes: studentForm.careTypes
+        } : s));
+        toast.success(`学生 [${studentForm.name}] 信息更新成功`);
+      } else {
+        // Add
+        const newId = (students.length + 1).toString();
+        const newStudent: Student = {
+          id: newId,
+          name: studentForm.name,
+          class: studentForm.class,
+          points: Number(studentForm.points),
+          avatar: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Felix',
+          activities: [
+            { label: '按时签到', value: 2 },
+            { label: '作业优秀', value: 5 }
+          ],
+          mode: studentForm.mode,
+          careTypes: studentForm.careTypes
+        };
+        setStudents(prev => [...prev, newStudent]);
+        toast.success(`新学生 [${studentForm.name}] 录入成功`);
+      }
+    });
   };
 
   const handleDeleteStudent = (id: string, name: string) => {
@@ -467,30 +510,38 @@ export default function AdminPanel({
       successMessageLabel = selectedItem.label;
     }
 
-    // Update students points
-    setStudents(prev => prev.map(s => {
-      if (s.id === pointTargetStudent.id) {
-        return {
-          ...s,
-          points: Math.max(0, s.points + finalChange)
-        };
-      }
-      return s;
-    }));
+    const typeArg = isAddition ? 'submit' as const : 'delete' as const;
+    const titleArg = isAddition ? '发放积分考评' : '分值惩戒扣减';
+    const descArg = isAddition ? '正在核算课堂加分权重，生成多端加分事务...' : '正在核算惩戒扣分权重，安全同步剩余分值余额...';
 
-    // Record Log
-    const newLog: PointLog = {
-      id: `log-${Date.now()}`,
-      studentName: pointTargetStudent.name,
-      activity: activityLabel,
-      points: finalChange,
-      time: new Date().toISOString().replace('T', ' ').slice(0, 16),
-      type: isAddition ? 'add' : 'deduct'
-    };
-    setPointLogs(prev => [newLog, ...prev]);
-
-    toast.success(`成功为 ${pointTargetStudent.name} 调整 ${finalChange > 0 ? `+${finalChange}` : finalChange} 积分 (${successMessageLabel})`);
+    // Close the modal immediately so it disappears before progress overlay loads
     setIsPointModalOpen(false);
+
+    runWithProgress(typeArg, titleArg, descArg, () => {
+      // Update students points
+      setStudents(prev => prev.map(s => {
+        if (s.id === pointTargetStudent.id) {
+          return {
+            ...s,
+            points: Math.max(0, s.points + finalChange)
+          };
+        }
+        return s;
+      }));
+
+      // Record Log
+      const newLog: PointLog = {
+        id: `log-${Date.now()}`,
+        studentName: pointTargetStudent.name,
+        activity: activityLabel,
+        points: finalChange,
+        time: new Date().toISOString().replace('T', ' ').slice(0, 16),
+        type: isAddition ? 'add' : 'deduct'
+      };
+      setPointLogs(prev => [newLog, ...prev]);
+
+      toast.success(`成功为 ${pointTargetStudent.name} 调整 ${finalChange > 0 ? `+${finalChange}` : finalChange} 积分 (${successMessageLabel})`);
+    });
   };
 
   // REWARD ACTIONS
@@ -543,36 +594,101 @@ export default function AdminPanel({
       return;
     }
 
-    if (editingReward) {
-      setRewards(prev => prev.map(r => r.id === editingReward.id ? {
-        ...r,
-        name: rewardForm.name,
-        description: rewardForm.description,
-        points: Number(rewardForm.points),
-        category: rewardForm.category as any,
-        image: rewardForm.image || undefined,
-        icon: rewardForm.icon || undefined
-      } : r));
-      toast.success(`礼品 [${rewardForm.name}] 修改成功`);
-    } else {
-      const newReward: Reward = {
-        id: `r-${Date.now()}`,
-        name: rewardForm.name,
-        description: rewardForm.description,
-        points: Number(rewardForm.points),
-        category: rewardForm.category as any,
-        image: rewardForm.image || 'https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&q=80&w=400'
-      };
-      setRewards(prev => [...prev, newReward]);
-      toast.success(`新礼品 [${rewardForm.name}] 添加成功`);
-    }
+    const actionType = editingReward ? 'edit' as const : 'submit' as const;
+    const actionTitle = editingReward ? '更新礼品盘点规格' : '上架全新兑换礼品';
+    const progressDesc = editingReward ? '正在写回修改描述、同步扣减分值系数...' : '正在入库礼品信息、分配兑换单编码并上架商店...';
+
+    // Close the modal immediately so it disappears before progress overlay loads
     setIsRewardModalOpen(false);
+
+    runWithProgress(actionType, actionTitle, progressDesc, () => {
+      if (editingReward) {
+        setRewards(prev => prev.map(r => r.id === editingReward.id ? {
+          ...r,
+          name: rewardForm.name,
+          description: rewardForm.description,
+          points: Number(rewardForm.points),
+          category: rewardForm.category as any,
+          image: rewardForm.image || undefined,
+          icon: rewardForm.icon || undefined
+        } : r));
+        toast.success(`礼品 [${rewardForm.name}] 修改成功`);
+      } else {
+        const newReward: Reward = {
+          id: `r-${Date.now()}`,
+          name: rewardForm.name,
+          description: rewardForm.description,
+          points: Number(rewardForm.points),
+          category: rewardForm.category as any,
+          image: rewardForm.image || 'https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&q=80&w=400'
+        };
+        setRewards(prev => [...prev, newReward]);
+        toast.success(`新礼品 [${rewardForm.name}] 添加成功`);
+      }
+    });
   };
 
   const handleDeleteReward = (id: string, name: string) => {
     setDeleteConfirm({
       isOpen: true,
       type: 'reward',
+      id,
+      name
+    });
+  };
+
+  const handleAvatarSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!avatarForm.name.trim()) {
+      toast.error('头像名称不能为空');
+      return;
+    }
+    if (!avatarForm.avatarUrl.trim()) {
+      toast.error('请上传一幅头像图片文件！');
+      return;
+    }
+
+    const actionType = editingAvatar ? 'edit' as const : 'submit' as const;
+    const actionTitle = editingAvatar ? '修改创意装扮细节' : '添加新款创意装扮';
+    const progressDesc = editingAvatar ? '正在修饰皮肤底盘、渐变色板并同步当前持有人...' : '正在上传皮肤图纸、建立色彩绑定并导入创意商城...';
+
+    // Close the modal immediately so it disappears before progress overlay loads
+    setIsAvatarModalOpen(false);
+
+    runWithProgress(actionType, actionTitle, progressDesc, () => {
+      if (editingAvatar) {
+        setCreativeAvatars(prev => prev.map(av => av.id === editingAvatar.id ? {
+          ...av,
+          name: avatarForm.name,
+          description: '',
+          pointsCost: Number(avatarForm.pointsCost),
+          avatarUrl: avatarForm.avatarUrl,
+          theme: avatarForm.theme,
+          animationType: 'none',
+          badge: undefined
+        } : av));
+        toast.success(`创意头像 [${avatarForm.name}] 修改成功`);
+      } else {
+        const newAvatar: CreativeAvatar = {
+          id: `av-${Date.now()}`,
+          name: avatarForm.name,
+          description: '',
+          pointsCost: Number(avatarForm.pointsCost),
+          avatarUrl: avatarForm.avatarUrl,
+          theme: avatarForm.theme,
+          animationType: 'none',
+          badge: undefined
+        };
+        setCreativeAvatars(prev => [...prev, newAvatar]);
+        toast.success(`新创意头像 [${avatarForm.name}] 添加成功`);
+      }
+    });
+  };
+
+  const handleDeleteAvatar = (id: string, name: string) => {
+    setDeleteConfirm({
+      isOpen: true,
+      type: 'avatar',
       id,
       name
     });
@@ -598,18 +714,26 @@ export default function AdminPanel({
       return;
     }
 
-    if (editingCategory) {
-      setCategories(prev => prev.map(c => c.id === editingCategory.id ? { ...c, label: categoryForm.label } : c));
-      toast.success(`分类已更新为 [${categoryForm.label}]`);
-    } else {
-      if (categories.some(c => c.id === categoryForm.id.trim())) {
-        toast.error('该分类编码已存在');
-        return;
-      }
-      setCategories(prev => [...prev, { id: categoryForm.id.trim(), label: categoryForm.label.trim() }]);
-      toast.success(`分类 [${categoryForm.label}] 添加成功`);
-    }
+    const actionType = editingCategory ? 'edit' as const : 'submit' as const;
+    const actionTitle = editingCategory ? '更新评分分类' : '创建新评分分类';
+    const progressDesc = editingCategory ? '正在同步分类索引、重定位评分分类绑定...' : '正在建立分类主键、生成级联节点并上报字典层...';
+
+    // Close the modal immediately so it disappears before progress overlay loads
     setIsCategoryModalOpen(false);
+
+    runWithProgress(actionType, actionTitle, progressDesc, () => {
+      if (editingCategory) {
+        setCategories(prev => prev.map(c => c.id === editingCategory.id ? { ...c, label: categoryForm.label } : c));
+        toast.success(`分类已更新为 [${categoryForm.label}]`);
+      } else {
+        if (categories.some(c => c.id === categoryForm.id.trim())) {
+          toast.error('该分类编码已存在');
+          return;
+        }
+        setCategories(prev => [...prev, { id: categoryForm.id.trim(), label: categoryForm.label.trim() }]);
+        toast.success(`分类 [${categoryForm.label}] 添加成功`);
+      }
+    });
   };
 
   const handleDeleteCategory = (id: string, label: string) => {
@@ -646,28 +770,35 @@ export default function AdminPanel({
     }
 
     const itemTypeName = pointItemForm.type === 'deduct' ? '减分项' : '加分项';
+    const actionType = editingPointItem ? 'edit' as const : 'submit' as const;
+    const actionTitle = editingPointItem ? `修订评分项目描述` : `新增评分指标规则`;
+    const progressDesc = editingPointItem ? '正在重置评分细则，同步全局权重系数...' : '正在建立加减分索引、解析指标内容写入策略数据库...';
 
-    if (editingPointItem) {
-      // Update
-      setPointItems(prev => prev.map(pi => pi.id === editingPointItem.id ? {
-        ...pi,
-        label: pointItemForm.label.trim(),
-        value: Number(pointItemForm.value),
-        type: pointItemForm.type
-      } : pi));
-      toast.success(`${itemTypeName} [${pointItemForm.label}] 更新成功`);
-    } else {
-      // Create new
-      const newId = `pi-${Date.now()}`;
-      setPointItems(prev => [...prev, {
-        id: newId,
-        label: pointItemForm.label.trim(),
-        value: Number(pointItemForm.value),
-        type: pointItemForm.type
-      }]);
-      toast.success(`${itemTypeName} [${pointItemForm.label}] 添加成功`);
-    }
+    // Close the modal immediately so it disappears before progress overlay loads
     setIsPointItemModalOpen(false);
+
+    runWithProgress(actionType, actionTitle, progressDesc, () => {
+      if (editingPointItem) {
+        // Update
+        setPointItems(prev => prev.map(pi => pi.id === editingPointItem.id ? {
+          ...pi,
+          label: pointItemForm.label.trim(),
+          value: Number(pointItemForm.value),
+          type: pointItemForm.type
+        } : pi));
+        toast.success(`${itemTypeName} [${pointItemForm.label}] 更新成功`);
+      } else {
+        // Create new
+        const newId = `pi-${Date.now()}`;
+        setPointItems(prev => [...prev, {
+          id: newId,
+          label: pointItemForm.label.trim(),
+          value: Number(pointItemForm.value),
+          type: pointItemForm.type
+        }]);
+        toast.success(`${itemTypeName} [${pointItemForm.label}] 添加成功`);
+      }
+    });
   };
 
   const handleDeletePointItem = (id: string, label: string) => {
@@ -683,36 +814,77 @@ export default function AdminPanel({
     const { type, id, name } = deleteConfirm;
     if (!type || !id) return;
 
+    let title = '删除数据项';
+    let progressDesc = '正在定位索引节点并执行安全的数据库擦除...';
+
     if (type === 'student') {
-      setStudents(prev => prev.filter(s => s.id !== id));
-      toast.success(`学生 [${name}] 已成功删除`);
+      title = `删除学生学籍 [${name || '未知'}]`;
+      progressDesc = '正在注销学籍关联、级联清除以往考评日志并解绑皮肤衣橱...';
     } else if (type === 'reward') {
-      setRewards(prev => prev.filter(r => r.id !== id));
-      toast.success(`礼品 [${name}] 已成功删除`);
+      title = `下架兑换礼品 [${name || '未知'}]`;
+      progressDesc = '正在下架学生橱窗中的商品、回收库存并释放空间...';
     } else if (type === 'category') {
-      setCategories(prev => prev.filter(c => c.id !== id));
-      toast.success(`分类 [${name}] 已成功删除`);
+      title = `清除评分分类 [${name || '未知'}]`;
+      progressDesc = '正在删除指标树节点、重置其下挂载的评分规则...';
     } else if (type === 'pointItem') {
-      setPointItems(prev => prev.filter(pi => pi.id !== id));
-      toast.success(`评分项 [${name}] 已成功删除`);
+      title = `废除考评评分项 [${name || '未知'}]`;
+      progressDesc = '正在从老师的快捷评分器中移除此规则，级联清理关联数据...';
     } else if (type === 'auction') {
-      setAuctions(prev => prev.filter(a => a.id !== id));
-      toast.success(`拍卖品 [${name}] 已成功删除`);
+      title = `取消竞拍展品 [${name || '未知'}]`;
+      progressDesc = '正在中断当前轮次的竞拍、全额退回学生抵押点数并撤回下架...';
+    } else if (type === 'avatar') {
+      title = `清除创意形象 [${name || '未知'}]`;
+      progressDesc = '正在将特定的创意装扮从公共衣橱删除并同步刷新历史穿扮纪录...';
     }
 
+    // Close the Delete confirmation dialog immediately so it disappears before progress overlay loads
     setDeleteConfirm({ isOpen: false, type: '', id: '', name: '' });
+
+    runWithProgress('delete', title, progressDesc, () => {
+      if (type === 'student') {
+        setStudents(prev => prev.filter(s => s.id !== id));
+        toast.success(`学生 [${name}] 已成功删除`);
+      } else if (type === 'reward') {
+        setRewards(prev => prev.filter(r => r.id !== id));
+        toast.success(`礼品 [${name}] 已成功删除`);
+      } else if (type === 'category') {
+        setCategories(prev => prev.filter(c => c.id !== id));
+        toast.success(`分类 [${name}] 已成功删除`);
+      } else if (type === 'pointItem') {
+        setPointItems(prev => prev.filter(pi => pi.id !== id));
+        toast.success(`评分项 [${name}] 已成功删除`);
+      } else if (type === 'auction') {
+        setAuctions(prev => prev.filter(a => a.id !== id));
+        toast.success(`拍卖品 [${name}] 已成功删除`);
+      } else if (type === 'avatar') {
+        setCreativeAvatars(prev => prev.filter(av => av.id !== id));
+        toast.success(`创意头像 [${name}] 已成功删除`);
+      }
+    });
   };
 
   // REDEMPTION ACTIONS
   const toggleRedemptionStatus = (id: string) => {
-    setRedemptions(prev => prev.map(r => {
-      if (r.id === id) {
-        const newStatus = r.status === '待发放' ? '已发放' : '待发放';
-        toast.info(`兑换状态已修改为: ${newStatus}`);
-        return { ...r, status: newStatus };
+    const item = redemptions.find(r => r.id === id);
+    if (!item) return;
+
+    const currentStatus = item.status;
+    const newStatus = currentStatus === '待发放' ? '已发放' : '待发放';
+
+    runWithProgress(
+      'edit',
+      newStatus === '已发放' ? '确认礼品下发发放' : '撤回礼品下发事务',
+      newStatus === '已发放' ? '正在核销礼品提货码、同步减少积分库存并签发实体货品...' : '正在撤销货件流转纪录、回滚历史点数状态并重置条形码...',
+      () => {
+        setRedemptions(prev => prev.map(r => {
+          if (r.id === id) {
+            toast.info(`兑换状态已修改为: ${newStatus}`);
+            return { ...r, status: newStatus };
+          }
+          return r;
+        }));
       }
-      return r;
-    }));
+    );
   };
 
   return (
@@ -737,6 +909,7 @@ export default function AdminPanel({
           { id: 'redemptions', label: '兑换记录', icon: ClipboardList },
           { id: 'point-logs', label: '积分日志', icon: History },
           { id: 'auctions', label: '拍卖管理', icon: Gavel },
+          { id: 'avatars', label: '创意头像管理', icon: Palette },
           { id: 'misc', label: '其他管理', icon: Settings }
         ].map((item) => {
           const Icon = item.icon;
@@ -1012,7 +1185,7 @@ export default function AdminPanel({
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
-              className="space-y-6 max-w-3xl"
+              className={`space-y-6 ${categoryActiveSection === 'reward-categories' ? 'max-w-3xl' : 'w-full'}`}
             >
               {/* Category Segment Selector */}
               <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200/50 max-w-xs md:max-w-sm">
@@ -1103,7 +1276,7 @@ export default function AdminPanel({
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
                     {/* Default Point Items Column */}
                     <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-xs space-y-4">
                       <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -1669,6 +1842,146 @@ export default function AdminPanel({
                     <Gavel className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                     <p className="text-sm text-slate-400 font-bold">没有对应拍卖商品</p>
                     <p className="text-xs text-slate-300 mt-1">上架一件极具吸引力的奖品来活跃气氛吧！</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {/* ================= CREATIVE AVATAR PANEL ================= */}
+          {subTab === 'avatars' && (
+            <motion.div
+              key="avatars"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              className="space-y-6"
+            >
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="relative max-w-md w-full">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
+                    <Search className="w-4 h-4" />
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="搜索头像名称或描述..."
+                    value={avatarSearch}
+                    onChange={(e) => setAvatarSearch(e.target.value)}
+                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-slate-600 focus:outline-hidden focus:bg-white focus:ring-2 focus:ring-brand/10 transition-all shadow-inner"
+                  />
+                  {avatarSearch && (
+                    <button
+                      onClick={() => setAvatarSearch('')}
+                      className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => {
+                    setEditingAvatar(null);
+                    setAvatarForm({
+                      name: '',
+                      description: '',
+                      pointsCost: 500,
+                      avatarUrl: '',
+                      theme: 'from-amber-400 to-yellow-500',
+                      animationType: 'none',
+                      badge: ''
+                    });
+                    setIsAvatarModalOpen(true);
+                  }}
+                  className="flex items-center gap-2 px-6 py-3 bg-brand text-white rounded-2xl font-black text-xs hover:bg-brand-dark hover:scale-102 transition-all shadow-md shadow-brand/10 cursor-pointer self-start md:self-auto"
+                >
+                  <Plus className="w-4 h-4 stroke-[3px]" />
+                  添加创意头像
+                </button>
+              </div>
+
+              {/* Avatar Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {creativeAvatars
+                  .filter(av => 
+                    av.name.toLowerCase().includes(avatarSearch.toLowerCase())
+                  )
+                  .map((av) => {
+                    const animClass = 
+                      av.animationType === 'float' ? 'animate-avatar-float' :
+                      av.animationType === 'wobble' ? 'animate-avatar-wobble' :
+                      av.animationType === 'pulse' ? 'animate-avatar-pulse-subtle' :
+                      av.animationType === 'spin' ? 'animate-avatar-spin-slow' : '';
+                    
+                    return (
+                      <div
+                        key={av.id}
+                        className="bg-white rounded-[2.2rem] border border-slate-100 p-5 shadow-card hover:shadow-2xl transition-all flex flex-col justify-between group relative overflow-hidden"
+                      >
+                        <div>
+                          {/* Visual Avatar frame */}
+                          <div className={`aspect-square w-full rounded-3xl bg-gradient-to-br ${av.theme} p-6 flex items-center justify-center relative shadow-inner mb-4`}>
+                            <img
+                              src={av.avatarUrl}
+                              alt={av.name}
+                              className={`w-28 h-28 object-contain ${animClass}`}
+                              referrerPolicy="no-referrer"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5 text-center">
+                            <h4 className="font-extrabold text-slate-800 text-sm group-hover:text-brand transition-colors truncate">
+                              {av.name}
+                            </h4>
+                          </div>
+                        </div>
+
+                        <div className="mt-5 pt-4 border-t border-slate-50 flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-1.5 bg-amber-50 px-2.5 py-1 rounded-xl">
+                            <Coins className="w-3.5 h-3.5 text-amber-500 fill-amber-300" />
+                            <span className="font-mono text-[11px] font-black text-amber-600">{av.pointsCost} 积分</span>
+                          </div>
+
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => {
+                                setEditingAvatar(av);
+                                setAvatarForm({
+                                  name: av.name,
+                                  description: '',
+                                  pointsCost: av.pointsCost,
+                                  avatarUrl: av.avatarUrl,
+                                  theme: av.theme,
+                                  animationType: 'none',
+                                  badge: ''
+                                });
+                                setIsAvatarModalOpen(true);
+                              }}
+                              className="p-2.5 bg-slate-50 hover:bg-brand/10 text-slate-500 hover:text-brand rounded-xl transition-all cursor-pointer"
+                              title="编辑"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteAvatar(av.id, av.name)}
+                              className="p-2.5 bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded-xl transition-all cursor-pointer"
+                              title="删除"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                {creativeAvatars.filter(av => 
+                  av.name.toLowerCase().includes(avatarSearch.toLowerCase())
+                ).length === 0 && (
+                  <div className="col-span-full py-16 text-center bg-slate-50/50 rounded-3xl border border-dashed border-slate-200">
+                    <Palette className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                    <p className="text-sm text-slate-400 font-bold">没有对应创意头像</p>
+                    <p className="text-xs text-slate-300 mt-1">点击右上方【添加创意头像】为同学们提供全新的穿搭！</p>
                   </div>
                 )}
               </div>
@@ -2641,6 +2954,167 @@ export default function AdminPanel({
         )}
       </AnimatePresence>
 
+      {/* 5.5 Creative Avatar Add/Edit Modal */}
+      <AnimatePresence>
+        {isAvatarModalOpen && (
+          <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsAvatarModalOpen(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ scale: 0.95, y: 20, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.95, y: 20, opacity: 0 }}
+              className="relative w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl p-8 overflow-hidden z-25 max-h-[90vh] flex flex-col"
+            >
+              <h3 className="text-2xl font-black text-slate-800 tracking-tight mb-2">
+                {editingAvatar ? '修改创意头像' : '上架新创意头像装扮'}
+              </h3>
+              <p className="text-slate-400 text-xs font-semibold mb-6">配置头像装扮的定制名称、积分点数和炫彩背景皮肤</p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 overflow-y-auto pr-1 no-scrollbar flex-1 items-start">
+                {/* Form fields */}
+                <form onSubmit={handleAvatarSubmit} className="space-y-4">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">头像名称</label>
+                    <input
+                      type="text"
+                      required
+                      value={avatarForm.name}
+                      onChange={(e) => setAvatarForm(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="✨ 酷炫新穿搭..."
+                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-xs font-semibold outline-hidden focus:ring-2 focus:ring-brand/20 transition-all"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">兑换积分</label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      value={avatarForm.pointsCost}
+                      onChange={(e) => setAvatarForm(prev => ({ ...prev, pointsCost: Number(e.target.value) }))}
+                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-xs font-semibold outline-hidden focus:ring-2 focus:ring-brand/20 transition-all"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">头像图片</label>
+                    <label className="flex flex-col items-center justify-center gap-3 w-full p-6 border-2 border-dashed border-slate-200 hover:border-brand/50 bg-slate-50 hover:bg-slate-50/80 rounded-2xl transition-all cursor-pointer group text-center">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 group-hover:scale-110 transition-transform">
+                        <Upload className="w-5 h-5 stroke-[2.5px]" />
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-xs font-black text-slate-700 block">
+                          {avatarForm.avatarUrl ? '✨ 重新上传头像图片' : '🚀 选择本地图片进行上传'}
+                        </span>
+                        <span className="text-[10px] font-medium text-slate-400 block">
+                          {avatarForm.avatarUrl ? '图片已就绪，可在右侧预览效果' : '推荐使用透明背景 PNG/GIF 格式 (不超过 2MB)'}
+                        </span>
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            if (file.size > 2 * 1024 * 1024) {
+                              toast.error('本地图片不能超过 2MB 规格以免影响本地缓存性能！');
+                              return;
+                            }
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                              const base64 = event.target?.result as string;
+                              if (base64) {
+                                setAvatarForm(prev => ({ ...prev, avatarUrl: base64 }));
+                                toast.success('图片已成功在本地加载，随时可以保存！');
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">炫彩底色皮肤</label>
+                    <select
+                      value={avatarForm.theme}
+                      onChange={(e) => setAvatarForm(prev => ({ ...prev, theme: e.target.value }))}
+                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-xs font-bold outline-hidden focus:ring-2 focus:ring-brand/20 transition-all text-slate-600"
+                    >
+                      <option value="from-amber-400 to-yellow-500">⚡️ 电光闪耀金</option>
+                      <option value="from-orange-300 to-amber-600">🦊 丛林森林橙</option>
+                      <option value="from-yellow-300 to-yellow-500">🦆 念力爆发黄</option>
+                      <option value="from-teal-600 to-slate-700">🌌 深海幽闭蓝</option>
+                      <option value="from-purple-600 to-indigo-950">🔮 魅影奇袭紫</option>
+                      <option value="from-pink-300 to-rose-400">🌸 治愈音波粉</option>
+                      <option value="from-sky-300 to-blue-500">🌊 裂空极速蓝</option>
+                      <option value="from-emerald-400 to-teal-600">🍃 盎然青草绿</option>
+                      <option value="from-orange-400 to-red-500">🔥 炽热烈焰红</option>
+                      <option value="from-fuchsia-400 via-pink-400 to-violet-500">🌈 极光幻境虹</option>
+                    </select>
+                  </div>
+
+                  <div className="flex gap-3 pt-6">
+                    <button
+                      type="button"
+                      onClick={() => setIsAvatarModalOpen(false)}
+                      className="flex-grow py-3 border border-slate-100 rounded-xl hover:bg-slate-50 transition-colors text-slate-500 font-extrabold text-xs cursor-pointer text-center"
+                    >
+                      取消
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-grow py-3 bg-brand hover:bg-brand-dark text-white rounded-xl transition-colors font-extrabold text-xs shadow-md shadow-brand/10 cursor-pointer"
+                    >
+                      {editingAvatar ? '确认保存' : '确定上架投产'}
+                    </button>
+                  </div>
+                </form>
+
+                {/* Live Preview only */}
+                <div className="space-y-4 flex flex-col justify-center h-full pt-4">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-4 text-center md:text-left">
+                      ⭐ 实时渲染效果预览
+                    </label>
+                    <div className="border border-slate-100 p-8 rounded-3xl bg-slate-50/50 flex flex-col items-center justify-center">
+                      <div className={`w-36 h-36 rounded-3xl bg-gradient-to-br ${avatarForm.theme} p-6 flex items-center justify-center relative shadow-md`}>
+                        {avatarForm.avatarUrl ? (
+                          <img
+                            src={avatarForm.avatarUrl}
+                            alt="Preview"
+                            className="w-24 h-24 object-contain"
+                            referrerPolicy="no-referrer"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Felix';
+                            }}
+                          />
+                        ) : (
+                          <div className="text-white/40 font-mono text-xs">无图像</div>
+                        )}
+                      </div>
+                      <div className="text-center mt-5">
+                        <span className="font-extrabold text-slate-800 text-sm block">{avatarForm.name || '头像名称'}</span>
+                        <span className="font-mono text-[11px] font-black text-amber-500 block mt-1">{avatarForm.pointsCost || 500} 积分即可拥有</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* 6. Global Delete Confirmation Modal */}
       <AnimatePresence>
         {deleteConfirm.isOpen && (
@@ -2671,10 +3145,11 @@ export default function AdminPanel({
               <div className="bg-rose-50/50 border border-rose-100 rounded-2xl p-4 mb-6 text-center">
                 <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">
                   正在删除{
-                    deleteConfirm.type === 'student' ? '学员' :
-                    deleteConfirm.type === 'reward' ? '礼品' :
-                    deleteConfirm.type === 'category' ? '分类' :
-                    deleteConfirm.type === 'auction' ? '拍卖商品' : '评分项'
+                  deleteConfirm.type === 'student' ? '学员' :
+                  deleteConfirm.type === 'reward' ? '礼品' :
+                  deleteConfirm.type === 'category' ? '分类' :
+                  deleteConfirm.type === 'auction' ? '拍卖商品' :
+                  deleteConfirm.type === 'avatar' ? '创意头像' : '评分项'
                   }
                 </p>
                 <p className="text-sm font-black text-red-600 truncate animate-none">

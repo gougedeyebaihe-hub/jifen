@@ -1,21 +1,23 @@
 import { Student } from '../types';
 import { motion } from 'motion/react';
 import { Trophy, Crown, Medal } from 'lucide-react';
-import { CREATIVE_AVATARS } from './AvatarShop';
+import { CREATIVE_AVATARS, CreativeAvatar } from './AvatarShop';
 
 interface PodiumProps {
   topStudents: Student[];
   onStudentClick?: (student: Student) => void;
+  creativeAvatars?: CreativeAvatar[];
 }
 
-export default function Podium({ topStudents, onStudentClick }: PodiumProps) {
+export default function Podium({ topStudents, onStudentClick, creativeAvatars }: PodiumProps) {
+  const avatarsList = creativeAvatars || CREATIVE_AVATARS;
   const sorted = [...topStudents].sort((a, b) => b.points - a.points);
   const first = sorted[0];
   const second = sorted[1];
   const third = sorted[2];
 
   const getAnimClass = (avatarUrl: string) => {
-    const matched = CREATIVE_AVATARS.find(av => av.avatarUrl === avatarUrl);
+    const matched = avatarsList.find(av => av.avatarUrl === avatarUrl);
     return matched
       ? (matched.animationType === 'float' ? 'animate-avatar-float' :
          matched.animationType === 'wobble' ? 'animate-avatar-wobble' :

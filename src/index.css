@@ -47,6 +47,11 @@
   50% { transform: scale(1.1) rotate(8deg); }
 }
 
+@keyframes progress-bar-stripes {
+  from { background-position: 1rem 0; }
+  to { background-position: 0 0; }
+}
+
 .animate-avatar-float {
   animation: float-lively 3s ease-in-out infinite;
 }
@@ -66,6 +71,40 @@
 
 .animate-avatar-wobble {
   animation: wobble-lively 2s ease-in-out infinite;
+}
+
+/* Eye-catching, thick-bordered and beautifully shadowed toast styles for extreme feedback clarity */
+.eye-catching-toast-success {
+  border: 3px solid #10b981 !important;
+  background-color: #f0fdf4 !important;
+  color: #064e3b !important;
+  box-shadow: 0 25px 30px -5px rgba(16, 185, 129, 0.22), 0 10px 15px -6px rgba(16, 185, 129, 0.15) !important;
+  border-radius: 24px !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  padding: 16px 20px !important;
+}
+
+.eye-catching-toast-error {
+  border: 3px solid #ef4444 !important;
+  background-color: #fef2f2 !important;
+  color: #7f1d1d !important;
+  box-shadow: 0 25px 30px -5px rgba(239, 68, 68, 0.22), 0 10px 15px -6px rgba(239, 68, 68, 0.15) !important;
+  border-radius: 24px !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  padding: 16px 20px !important;
+}
+
+.eye-catching-toast-info {
+  border: 3px solid #3b82f6 !important;
+  background-color: #eff6ff !important;
+  color: #1e3a8a !important;
+  box-shadow: 0 25px 30px -5px rgba(59, 130, 246, 0.22), 0 10px 15px -6px rgba(59, 130, 246, 0.15) !important;
+  border-radius: 24px !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  padding: 16px 20px !important;
 }
 
 @layer base {

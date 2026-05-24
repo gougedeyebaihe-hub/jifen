@@ -1,14 +1,16 @@
 import { Student } from '../types';
 import { motion } from 'motion/react';
 import { TrendingUp } from 'lucide-react';
-import { CREATIVE_AVATARS } from './AvatarShop';
+import { CREATIVE_AVATARS, CreativeAvatar } from './AvatarShop';
 
 interface LeaderboardListProps {
   students: Student[];
   onStudentClick?: (student: Student) => void;
+  creativeAvatars?: CreativeAvatar[];
 }
 
-export default function LeaderboardList({ students, onStudentClick }: LeaderboardListProps) {
+export default function LeaderboardList({ students, onStudentClick, creativeAvatars }: LeaderboardListProps) {
+  const avatarsList = creativeAvatars || CREATIVE_AVATARS;
   // Skipping top 3
   const others = students.slice(3);
 
@@ -16,7 +18,7 @@ export default function LeaderboardList({ students, onStudentClick }: Leaderboar
     <div className="bg-white/30 backdrop-blur-xl rounded-[2.5rem] p-4 shadow-soft mt-8 border border-white/40">
       <div className="max-h-[450px] overflow-y-auto pr-2 custom-scrollbar space-y-3">
         {others.map((student, index) => {
-          const matchedConfig = CREATIVE_AVATARS.find(av => av.avatarUrl === student.avatar);
+          const matchedConfig = avatarsList.find(av => av.avatarUrl === student.avatar);
           const animClass = matchedConfig
             ? (matchedConfig.animationType === 'float' ? 'animate-avatar-float' :
                matchedConfig.animationType === 'wobble' ? 'animate-avatar-wobble' :

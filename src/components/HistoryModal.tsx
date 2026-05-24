@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, Calendar, Zap, ArrowUpRight, Palette, Check } from 'lucide-react';
 import { Student } from '../types';
 import { toast } from 'sonner';
-import { CREATIVE_AVATARS } from './AvatarShop';
+import { CREATIVE_AVATARS, CreativeAvatar } from './AvatarShop';
  
 interface HistoryModalProps {
   isOpen: boolean;
@@ -10,9 +10,12 @@ interface HistoryModalProps {
   student: Student | null;
   pointLogs?: any[];
   onEquipAvatar?: (studentId: string, avatarUrl: string) => void;
+  creativeAvatars?: CreativeAvatar[];
 }
 
-export default function HistoryModal({ isOpen, onClose, student, pointLogs = [], onEquipAvatar }: HistoryModalProps) {
+export default function HistoryModal({ isOpen, onClose, student, pointLogs = [], onEquipAvatar, creativeAvatars }: HistoryModalProps) {
+  const avatarsList = creativeAvatars || CREATIVE_AVATARS;
+
   // Filter logs for this specific student
   const studentLogs = student 
     ? pointLogs.filter(log => log.studentName === student.name)
@@ -29,7 +32,7 @@ export default function HistoryModal({ isOpen, onClose, student, pointLogs = [],
 
   // Compute dynamic avatar animation for current equipped one
   const currentAvatarConfig = student
-    ? CREATIVE_AVATARS.find(av => av.avatarUrl === student.avatar)
+    ? avatarsList.find(av => av.avatarUrl === student.avatar)
     : null;
   const currentAnimClass = currentAvatarConfig
     ? (currentAvatarConfig.animationType === 'float' ? 'animate-avatar-float' :
@@ -113,7 +116,7 @@ export default function HistoryModal({ isOpen, onClose, student, pointLogs = [],
               <div className="flex gap-3 overflow-x-auto py-1 px-1 no-scrollbar scroll-smooth">
                 {unlockedAvatarsList.map((url, index) => {
                   const isCurrent = student?.avatar === url;
-                  const itemConfig = CREATIVE_AVATARS.find(av => av.avatarUrl === url);
+                  const itemConfig = avatarsList.find(av => av.avatarUrl === url);
                   const itemAnimClass = itemConfig
                     ? (itemConfig.animationType === 'float' ? 'animate-avatar-float' :
                        itemConfig.animationType === 'wobble' ? 'animate-avatar-wobble' :

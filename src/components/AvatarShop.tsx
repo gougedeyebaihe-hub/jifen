@@ -121,15 +121,17 @@ interface AvatarShopProps {
   students: Student[];
   setStudents: React.Dispatch<React.SetStateAction<Student[]>>;
   onUnlockSuccess: (studentName: string, avatarName: string, pointsPaid: number) => void;
+  creativeAvatars?: CreativeAvatar[];
 }
 
-export default function AvatarShop({ students, setStudents, onUnlockSuccess }: AvatarShopProps) {
+export default function AvatarShop({ students, setStudents, onUnlockSuccess, creativeAvatars }: AvatarShopProps) {
   const [selectedAvatar, setSelectedAvatar] = useState<CreativeAvatar | null>(null);
   const [isUnlockDrawerOpen, setIsUnlockDrawerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterMode, setFilterMode] = useState<'all' | 'unlocked' | 'affordable'>('all');
   const [unlockingStudentId, setUnlockingStudentId] = useState<string | null>(null);
   const [loadingPhase, setLoadingPhase] = useState<string>('');
+
+  const avatarsList = creativeAvatars || CREATIVE_AVATARS;
 
   // Find which students unlocked which avatar (by comparing URLs)
   const getOwnersOfAvatar = (avatarUrl: string) => {
@@ -195,18 +197,7 @@ export default function AvatarShop({ students, setStudents, onUnlockSuccess }: A
     setIsUnlockDrawerOpen(false);
   };
 
-  const filteredAvatars = CREATIVE_AVATARS.filter(av => {
-    if (filterMode === 'all') return true;
-    if (filterMode === 'unlocked') {
-      // Show avatars with at least one owner
-      return getOwnersOfAvatar(av.avatarUrl).length > 0;
-    }
-    if (filterMode === 'affordable') {
-      // Show if ANY student can afford it (simple proxy)
-      return students.some(s => s.points >= av.pointsCost && !s.unlockedAvatars?.includes(av.avatarUrl));
-    }
-    return true;
-  });
+  const filteredAvatars = avatarsList;
 
   return (
     <div className="space-y-8">
@@ -226,34 +217,16 @@ export default function AvatarShop({ students, setStudents, onUnlockSuccess }: A
           <Palette className="w-8 h-8 text-teal-500" />
           <div className="text-left text-xs">
             <p className="text-slate-400 font-bold">全馆头像数量</p>
-            <p className="font-mono text-lg font-black text-slate-700">{CREATIVE_AVATARS.length} 款精品</p>
+            <p className="font-mono text-lg font-black text-slate-700">{avatarsList.length} 款精品</p>
           </div>
         </div>
         <div className="absolute top-0 right-0 w-80 h-80 bg-teal-300/10 rounded-full translate-x-1/3 -translate-y-1/3 blur-3xl pointer-events-none" />
       </div>
 
-      {/* Filter switcher */}
-      <div className="flex justify-between items-center bg-slate-50 border border-slate-100 p-2.5 rounded-2xl">
-        <div className="flex gap-1">
-          {[
-            { id: 'all', label: '🚀 全球馆' },
-            { id: 'affordable', label: '💰 余额可兑' },
-            { id: 'unlocked', label: '👥 有人拥有' },
-          ].map(opt => (
-            <button
-              key={opt.id}
-              onClick={() => setFilterMode(opt.id as any)}
-              className={`px-6 py-2 rounded-xl text-xs font-bold transition-all ${
-                filterMode === opt.id
-                  ? 'bg-white text-teal-600 shadow-md shadow-slate-200'
-                  : 'text-slate-500 hover:bg-slate-100/50'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-        <span className="text-xs text-slate-400 font-bold tracking-tight">点击心仪作品一键换装</span>
+      {/* Filter switcher replaced with clean header */}
+      <div className="flex justify-between items-center bg-slate-50 border border-slate-100 p-4 rounded-2xl">
+        <span className="text-[11px] font-extrabold uppercase tracking-widest text-slate-400">✨ 全馆精品大赏</span>
+        <span className="text-xs text-slate-400 font-bold tracking-tight">点击心仪作品为学员一键换装 & 永久加入衣橱</span>
       </div>
 
       {/* Avatar grid */}
