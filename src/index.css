@@ -19,6 +19,55 @@
   --shadow-card: 0 8px 30px rgba(0, 0, 0, 0.04);
 }
 
+@keyframes float-lively {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-16px) rotate(2deg); }
+}
+
+@keyframes bounce-lively {
+  0%, 100% { transform: translateY(0) scaleY(1) scaleX(1); }
+  30% { transform: translateY(-18px) scaleY(1.1) scaleX(0.9); }
+  50% { transform: translateY(-22px) scaleY(1.05) scaleX(0.95); }
+  75% { transform: translateY(-8px) scaleY(0.95) scaleX(1.05); }
+}
+
+@keyframes pulse-lively {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 6px rgba(20,184,166,0.4)); }
+  50% { transform: scale(1.15); filter: drop-shadow(0 0 20px rgba(20,184,166,0.8)); }
+}
+
+@keyframes neon-shimmer {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes wobble-lively {
+  0%, 100% { transform: scale(1) rotate(-8deg); }
+  50% { transform: scale(1.1) rotate(8deg); }
+}
+
+.animate-avatar-float {
+  animation: float-lively 3s ease-in-out infinite;
+}
+
+.animate-avatar-spin-slow {
+  animation: bounce-lively 2.2s cubic-bezier(0.28, 0.84, 0.42, 1) infinite;
+}
+
+.animate-avatar-pulse-subtle {
+  animation: pulse-lively 2s ease-in-out infinite;
+}
+
+.animate-avatar-rainbow {
+  background-size: 200% 200%;
+  animation: neon-shimmer 4s ease infinite;
+}
+
+.animate-avatar-wobble {
+  animation: wobble-lively 2s ease-in-out infinite;
+}
+
 @layer base {
   body {
     @apply bg-surface-base text-slate-800 font-sans antialiased;

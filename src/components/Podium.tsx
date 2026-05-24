@@ -1,6 +1,7 @@
 import { Student } from '../types';
 import { motion } from 'motion/react';
 import { Trophy, Crown, Medal } from 'lucide-react';
+import { CREATIVE_AVATARS } from './AvatarShop';
 
 interface PodiumProps {
   topStudents: Student[];
@@ -12,6 +13,16 @@ export default function Podium({ topStudents, onStudentClick }: PodiumProps) {
   const first = sorted[0];
   const second = sorted[1];
   const third = sorted[2];
+
+  const getAnimClass = (avatarUrl: string) => {
+    const matched = CREATIVE_AVATARS.find(av => av.avatarUrl === avatarUrl);
+    return matched
+      ? (matched.animationType === 'float' ? 'animate-avatar-float' :
+         matched.animationType === 'wobble' ? 'animate-avatar-wobble' :
+         matched.animationType === 'pulse' ? 'animate-avatar-pulse-subtle' :
+         matched.animationType === 'spin' ? 'animate-avatar-spin-slow' : '')
+      : '';
+  };
 
   return (
     <div className="flex items-end justify-center gap-2 mt-20 mb-10 h-72 relative">
@@ -27,7 +38,7 @@ export default function Podium({ topStudents, onStudentClick }: PodiumProps) {
         >
           <div className="relative mb-6">
             <div className="w-24 h-24 rounded-full border-4 border-slate-200 p-1 bg-white overflow-hidden shadow-xl transform group-hover:scale-110 transition-transform">
-              <img src={second.avatar} alt={second.name} className="w-full h-full object-cover rounded-full" />
+              <img src={second.avatar} alt={second.name} className={`w-full h-full object-cover rounded-full ${getAnimClass(second.avatar)}`} />
             </div>
             <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-slate-200 rounded-lg flex items-center justify-center shadow-lg border-2 border-white">
               <Medal className="w-6 h-6 text-slate-500" />
@@ -67,7 +78,7 @@ export default function Podium({ topStudents, onStudentClick }: PodiumProps) {
             </motion.div>
             
             <div className="w-32 h-32 rounded-full border-8 border-brand-light p-1 bg-white overflow-hidden shadow-2xl transform group-hover:scale-110 transition-transform">
-              <img src={first.avatar} alt={first.name} className="w-full h-full object-cover rounded-full" />
+              <img src={first.avatar} alt={first.name} className={`w-full h-full object-cover rounded-full ${getAnimClass(first.avatar)}`} />
             </div>
             
             <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-brand text-white px-4 py-1.5 rounded-full shadow-lg border-4 border-white flex items-center gap-1">
@@ -101,7 +112,7 @@ export default function Podium({ topStudents, onStudentClick }: PodiumProps) {
         >
           <div className="relative mb-6">
             <div className="w-24 h-24 rounded-full border-4 border-orange-100 p-1 bg-white overflow-hidden shadow-xl transform group-hover:scale-110 transition-transform">
-              <img src={third.avatar} alt={third.name} className="w-full h-full object-cover rounded-full" />
+              <img src={third.avatar} alt={third.name} className={`w-full h-full object-cover rounded-full ${getAnimClass(third.avatar)}`} />
             </div>
             <div className="absolute -bottom-2 -left-2 w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center shadow-lg border-2 border-white">
               <Medal className="w-6 h-6 text-orange-400" />

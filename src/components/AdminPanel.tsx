@@ -90,6 +90,10 @@ export default function AdminPanel({
   const [pointTargetStudent, setPointTargetStudent] = useState<Student | null>(null);
   const [selectedPointItemId, setSelectedPointItemId] = useState<string>('');
   const [pointRemark, setPointRemark] = useState<string>('');
+  const [isCustomPoint, setIsCustomPoint] = useState<boolean>(false);
+  const [customPointType, setCustomPointType] = useState<'add' | 'deduct'>('add');
+  const [customPointValue, setCustomPointValue] = useState<string>('');
+  const [customPointRemark, setCustomPointRemark] = useState<string>('');
 
   const [isRewardModalOpen, setIsRewardModalOpen] = useState(false);
   const [editingReward, setEditingReward] = useState<Reward | null>(null);
@@ -387,7 +391,7 @@ export default function AdminPanel({
         name: studentForm.name,
         class: studentForm.class,
         points: Number(studentForm.points),
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(studentForm.name)}`,
+        avatar: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Felix',
         activities: [
           { label: '按时签到', value: 2 },
           { label: '作业优秀', value: 5 }
@@ -416,25 +420,52 @@ export default function AdminPanel({
     const firstItem = pointItems[0]?.id || '';
     setSelectedPointItemId(firstItem);
     setPointRemark('');
+    setIsCustomPoint(false);
+    setCustomPointType('add');
+    setCustomPointValue('');
+    setCustomPointRemark('');
     setIsPointModalOpen(true);
   };
 
   const handlePointSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!pointTargetStudent) return;
-    const selectedItem = pointItems.find(pi => pi.id === selectedPointItemId);
-    if (!selectedItem) {
-      toast.error('请选择一个有效的评分项');
-      return;
+
+    let finalChange = 0;
+    let activityLabel = '';
+    let isAddition = true;
+    let successMessageLabel = '';
+
+    if (isCustomPoint) {
+      const val = parseInt(customPointValue, 10);
+      if (isNaN(val) || val <= 0) {
+        toast.error('请输入大于0的有效自定义分值');
+        return;
+      }
+      if (!customPointRemark.trim()) {
+        toast.error('自定义评分的备注说明不能为空');
+        return;
+      }
+      isAddition = customPointType === 'add';
+      finalChange = isAddition ? val : -val;
+      activityLabel = `🌟 自定义评分: ${customPointRemark.trim()}`;
+      successMessageLabel = `自定义调分 (${customPointRemark.trim()})`;
+    } else {
+      const selectedItem = pointItems.find(pi => pi.id === selectedPointItemId);
+      if (!selectedItem) {
+        toast.error('请选择一个有效的评分项');
+        return;
+      }
+
+      const value = selectedItem.value;
+      isAddition = selectedItem.type !== 'deduct';
+      finalChange = isAddition ? value : -value;
+
+      activityLabel = pointRemark.trim() 
+        ? `${selectedItem.label} (${pointRemark.trim()})`
+        : selectedItem.label;
+      successMessageLabel = selectedItem.label;
     }
-
-    const value = selectedItem.value;
-    const isAddition = selectedItem.type !== 'deduct';
-    const finalChange = isAddition ? value : -value;
-
-    const activityLabel = pointRemark.trim() 
-      ? `${selectedItem.label} (${pointRemark.trim()})`
-      : selectedItem.label;
 
     // Update students points
     setStudents(prev => prev.map(s => {
@@ -458,7 +489,7 @@ export default function AdminPanel({
     };
     setPointLogs(prev => [newLog, ...prev]);
 
-    toast.success(`成功为 ${pointTargetStudent.name} 调整 ${finalChange > 0 ? `+${finalChange}` : finalChange} 积分 (${selectedItem.label})`);
+    toast.success(`成功为 ${pointTargetStudent.name} 调整 ${finalChange > 0 ? `+${finalChange}` : finalChange} 积分 (${successMessageLabel})`);
     setIsPointModalOpen(false);
   };
 
@@ -1072,7 +1103,7 @@ export default function AdminPanel({
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     {/* Default Point Items Column */}
                     <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-xs space-y-4">
                       <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -1204,6 +1235,61 @@ export default function AdminPanel({
                         )}
                       </div>
                     </div>
+
+                    {/* Independent Custom Scoring Column (独特内置可变评分) */}
+                    <div className="bg-gradient-to-b from-brand/5 to-white border border-brand/25 rounded-3xl p-6 shadow-sm space-y-4 relative overflow-hidden group">
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-brand/10 rounded-full translate-x-8 -translate-y-8 blur-lg group-hover:scale-125 transition-transform" />
+                      <div className="flex items-center justify-between border-b border-brand/10 pb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-brand-dark animate-pulse" />
+                          <h4 className="font-extrabold text-slate-800 text-sm">系统内置项 (独立评分)</h4>
+                        </div>
+                        <span className="text-[10px] font-extrabold text-white bg-brand-dark px-2.5 py-1 rounded-md uppercase tracking-wider scale-95 shadow-xs">
+                          🔥 特别预设
+                        </span>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        <div className="p-4 bg-white/85 border border-brand/10 rounded-2xl space-y-3 shadow-xs">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="font-black text-brand-dark text-sm">✨ 独立自定义评分候选项</p>
+                              <p className="text-slate-400 text-[10px] font-medium mt-0.5">Custom Adjustment Option</p>
+                            </div>
+                            <span className="text-[10px] font-extrabold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">
+                              免维护
+                            </span>
+                          </div>
+                          
+                          <p className="text-slate-500 text-xs font-semibold leading-relaxed">
+                            此项目为系统内置的独立评分机制。点击评分时可随时在“独立自定义评分”选项卡中：
+                          </p>
+
+                          <ul className="space-y-1.5 text-xs font-extrabold text-slate-700">
+                            <li className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                              自由设置【得分 / 扣分】
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                              自由调整【分值大小】
+                            </li>
+                            <li className="flex items-center gap-2 text-rose-600">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                              校验限制【备注不能为空】
+                            </li>
+                          </ul>
+                        </div>
+
+                        <div className="p-3 bg-brand/5 rounded-xl border border-brand/10 flex items-center gap-2.5">
+                          <AlertCircle className="w-4 h-4 text-brand shrink-0" />
+                          <p className="text-[10.5px] font-bold text-brand-dark leading-tight">
+                            该项已在学员评分弹窗中独立展示，点击即可轻松自定义操作。
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
                   </div>
                 </div>
               )}
@@ -1879,82 +1965,195 @@ export default function AdminPanel({
               className="relative w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl p-8 overflow-hidden"
             >
               <h3 className="text-2xl font-black text-slate-800 tracking-tight mb-1">调整积分变动</h3>
-              <p className="text-slate-400 text-xs font-semibold mb-6">正在为学员 <span className="text-brand font-black">{pointTargetStudent?.name}</span> 选择评分项</p>
+              <p className="text-slate-400 text-xs font-semibold mb-5">正在为学员 <span className="text-brand font-black">{pointTargetStudent?.name}</span> 处理评分</p>
+
+              {/* Independent Toggle Switch Tabs */}
+              <div className="flex bg-slate-100 p-1 rounded-2xl mb-5 border border-slate-200/50">
+                <button
+                  type="button"
+                  onClick={() => setIsCustomPoint(false)}
+                  className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                    !isCustomPoint 
+                      ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-900/5' 
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  📋 选用分类预设
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsCustomPoint(true)}
+                  className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                    isCustomPoint 
+                      ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-900/5' 
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  ✨ 独立自定义评分
+                </button>
+              </div>
 
               <form onSubmit={handlePointSubmit} className="space-y-4">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">选择评分预设项 (评分项维护)</label>
-                  <select
-                    required
-                    value={selectedPointItemId}
-                    onChange={(e) => setSelectedPointItemId(e.target.value)}
-                    className="w-full px-4 py-3.5 bg-slate-50 border-none rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-brand/20 transition-all cursor-pointer"
-                  >
-                    <option value="" disabled>-- 请选择评分预设 --</option>
-                    {pointItems.filter(item => item.type === 'default').length > 0 && (
-                      <optgroup label="🟢 默认加分项">
-                        {pointItems.filter(item => item.type === 'default').map(item => (
-                          <option key={item.id} value={item.id} className="font-semibold text-emerald-600">
-                            {item.label} (+{item.value} 积分)
+                {!isCustomPoint ? (
+                  /* Presets Path */
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">选择评分预设项 (评分项维护)</label>
+                      <select
+                        required
+                        value={selectedPointItemId}
+                        onChange={(e) => {
+                          if (e.target.value === 'custom-option') {
+                            setIsCustomPoint(true);
+                          } else {
+                            setSelectedPointItemId(e.target.value);
+                          }
+                        }}
+                        className="w-full px-4 py-3.5 bg-slate-50 border-none rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-brand/20 transition-all cursor-pointer"
+                      >
+                        <option value="" disabled>-- 请选择评分预设 --</option>
+                        {pointItems.filter(item => item.type === 'default').length > 0 && (
+                          <optgroup label="🟢 默认加分项">
+                            {pointItems.filter(item => item.type === 'default').map(item => (
+                              <option key={item.id} value={item.id} className="font-semibold text-emerald-600">
+                                {item.label} (+{item.value} 积分)
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                        {pointItems.filter(item => item.type === 'other').length > 0 && (
+                          <optgroup label="🔵 其他加分项">
+                            {pointItems.filter(item => item.type === 'other').map(item => (
+                              <option key={item.id} value={item.id} className="font-semibold text-blue-600">
+                                {item.label} (+{item.value} 积分)
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                        {pointItems.filter(item => item.type === 'deduct').length > 0 && (
+                          <optgroup label="🔴 减分项">
+                            {pointItems.filter(item => item.type === 'deduct').map(item => (
+                              <option key={item.id} value={item.id} className="font-semibold text-rose-600">
+                                {item.label} (-{item.value} 积分)
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                        <optgroup label="⚙️ 特殊快捷指令">
+                          <option value="custom-option" className="font-bold text-brand-dark bg-brand/5">
+                            ✨ 使用独立自定义调分 (自由输入)
                           </option>
-                        ))}
-                      </optgroup>
-                    )}
-                    {pointItems.filter(item => item.type === 'other').length > 0 && (
-                      <optgroup label="🔵 其他加分项">
-                        {pointItems.filter(item => item.type === 'other').map(item => (
-                          <option key={item.id} value={item.id} className="font-semibold text-blue-600">
-                            {item.label} (+{item.value} 积分)
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
-                    {pointItems.filter(item => item.type === 'deduct').length > 0 && (
-                      <optgroup label="🔴 减分项">
-                        {pointItems.filter(item => item.type === 'deduct').map(item => (
-                          <option key={item.id} value={item.id} className="font-semibold text-rose-600">
-                            {item.label} (-{item.value} 积分)
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
-                  </select>
-                </div>
+                        </optgroup>
+                      </select>
+                    </div>
 
-                {/* Pre-calculated points preview badge */}
-                {(() => {
-                  const currentItem = pointItems.find(pi => pi.id === selectedPointItemId);
-                  if (!currentItem) return null;
-                  const isAdd = currentItem.type !== 'deduct';
-                  return (
-                    <motion.div 
-                      initial={{ opacity: 0, y: -5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={`p-4 rounded-xl flex items-center justify-between font-bold text-xs ${
-                        isAdd ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-rose-50 text-rose-700 border border-rose-100'
-                      }`}
-                    >
-                      <span className="flex items-center gap-1.5">
-                        <span className={`w-2 h-2 rounded-full ${isAdd ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                        当前变动作业类型
-                      </span>
-                      <span className="font-mono font-black text-sm">
-                        {isAdd ? `+${currentItem.value}` : `-${currentItem.value}`} pts
-                      </span>
-                    </motion.div>
-                  );
-                })()}
- 
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">备注信息 / 详细说明</label>
-                  <input
-                    type="text"
-                    value={pointRemark}
-                    onChange={(e) => setPointRemark(e.target.value)}
-                    placeholder="可在此添加具体评价、备注内容（选填）"
-                    className="w-full px-4 py-3.5 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-brand/20 transition-all"
-                  />
-                </div>
+                    {/* Pre-calculated points preview badge */}
+                    {(() => {
+                      const currentItem = pointItems.find(pi => pi.id === selectedPointItemId);
+                      if (!currentItem) return null;
+                      const isAdd = currentItem.type !== 'deduct';
+                      return (
+                        <motion.div 
+                          initial={{ opacity: 0, y: -5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className={`p-4 rounded-xl flex items-center justify-between font-bold text-xs ${
+                            isAdd ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-rose-50 text-rose-700 border border-rose-100'
+                          }`}
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <span className={`w-2 h-2 rounded-full ${isAdd ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                            当前变动作业类型
+                          </span>
+                          <span className="font-mono font-black text-sm">
+                            {isAdd ? `+${currentItem.value}` : `-${currentItem.value}`} pts
+                          </span>
+                        </motion.div>
+                      );
+                    })()}
+    
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">备注信息 / 详细说明 (选填)</label>
+                      <input
+                        type="text"
+                        value={pointRemark}
+                        onChange={(e) => setPointRemark(e.target.value)}
+                        placeholder="可在此添加具体评价、备注内容（选填）"
+                        className="w-full px-4 py-3.5 bg-slate-50 border-none rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-brand/20 transition-all"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  /* Custom Path (加减分/分数自定义/备注必填/独立) */
+                  <div className="space-y-4">
+                    {/* 1. Point Direction Switch */}
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">挑选评分类型</label>
+                      <div className="grid grid-cols-2 gap-3 p-1 bg-slate-100 rounded-xl">
+                        <button
+                          type="button"
+                          onClick={() => setCustomPointType('add')}
+                          className={`py-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 ${
+                            customPointType === 'add'
+                              ? 'bg-white text-emerald-600 shadow-sm ring-1 ring-emerald-100'
+                              : 'text-slate-500 hover:text-slate-800'
+                          }`}
+                        >
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
+                          加分 (+)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCustomPointType('deduct')}
+                          className={`py-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 ${
+                            customPointType === 'deduct'
+                              ? 'bg-white text-rose-600 shadow-sm ring-1 ring-rose-100'
+                              : 'text-slate-500 hover:text-slate-800'
+                          }`}
+                        >
+                          <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0" />
+                          减分 (-)
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 2. Custom Point Value */}
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">
+                        自定义评分数值 <span className="text-rose-500 font-extrabold">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          required
+                          min="1"
+                          max="10000"
+                          value={customPointValue}
+                          onChange={(e) => setCustomPointValue(e.target.value)}
+                          placeholder="请输入自定义分数"
+                          className="w-full px-4 py-3.5 bg-slate-50 border-none rounded-xl text-sm font-bold text-slate-800 placeholder-slate-400 outline-none focus:ring-2 focus:ring-brand/20 transition-all"
+                        />
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 font-mono font-black text-sm text-slate-400">
+                          {customPointType === 'add' ? '+' : '-'}{Number(customPointValue) || 0} pts
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* 3. Mandatory Remark */}
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5">
+                        评分真实备注 (必填) <span className="text-rose-500 font-extrabold">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={customPointRemark}
+                        onChange={(e) => setCustomPointRemark(e.target.value)}
+                        placeholder="请输入变动原因（备注不可为空）"
+                        className="w-full px-4 py-3.5 bg-slate-50 border border-transparent rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand/10 transition-all"
+                      />
+                    </div>
+                  </div>
+                )}
  
                 <div className="flex gap-3 pt-4">
                   <button
@@ -1967,11 +2166,13 @@ export default function AdminPanel({
                   <button
                     type="submit"
                     className={`flex-1 py-3.5 text-white rounded-xl transition-colors font-bold text-sm ${
-                      (() => {
-                        const currentItem = pointItems.find(pi => pi.id === selectedPointItemId);
-                        const isAdd = currentItem?.type !== 'deduct';
-                        return isAdd ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-rose-500 hover:bg-rose-600';
-                      })()
+                      isCustomPoint
+                        ? (customPointType === 'add' ? 'bg-emerald-500 hover:bg-emerald-600 shadow-md shadow-emerald-500/10' : 'bg-rose-500 hover:bg-rose-600 shadow-md shadow-rose-500/10')
+                        : (() => {
+                            const currentItem = pointItems.find(pi => pi.id === selectedPointItemId);
+                            const isAdd = currentItem?.type !== 'deduct';
+                            return isAdd ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-rose-500 hover:bg-rose-600';
+                          })()
                     }`}
                   >
                     确认评分

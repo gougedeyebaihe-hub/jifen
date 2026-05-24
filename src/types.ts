@@ -8,6 +8,7 @@ export interface Student {
   activities?: Activity[];
   mode?: 'online' | 'offline'; // 'online' = 线上, 'offline' = 线下
   careTypes?: string[];       // ['zhongtuo', 'wantuo'] 等
+  unlockedAvatars?: string[];  // 已解锁的创意头像 URL 列表
 }
 
 export interface Activity {

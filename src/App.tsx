@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bolt, Filter, ChevronRight, Zap, ShoppingBag, Clock, History, Trophy, Gavel, CheckCircle2 } from 'lucide-react';
+import { Bolt, Filter, ChevronRight, Zap, ShoppingBag, Clock, History, Trophy, Gavel, CheckCircle2, Palette } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 
 import Navbar from './components/Navbar';
@@ -13,6 +13,7 @@ import AuctionBidDrawer from './components/AuctionBidDrawer';
 import HistoryModal from './components/HistoryModal';
 import LoginModal from './components/LoginModal';
 import AdminPanel from './components/AdminPanel';
+import AvatarShop from './components/AvatarShop';
 
 import { Tab, Reward, AuctionItem, Student, PointItem } from './types';
 import { STUDENTS_MOCK, REWARDS_MOCK, AUCTION_MOCK } from './constants';
@@ -23,6 +24,7 @@ export default function App() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedReward, setSelectedReward] = useState<Reward | null>(null);
   const [rewardCategory, setRewardCategory] = useState<string>('all');
+  const [shopMode, setShopMode] = useState<'gifts' | 'avatars'>('gifts');
   
   const [isAuctionDrawerOpen, setIsAuctionDrawerOpen] = useState(false);
   const [selectedAuctionItem, setSelectedAuctionItem] = useState<AuctionItem | null>(null);
@@ -34,7 +36,12 @@ export default function App() {
   const [user, setUser] = useState<any>(null);
 
   // Core Persistent Local States
-  const [students, setStudents] = useState<Student[]>(STUDENTS_MOCK);
+  const [students, setStudents] = useState<Student[]>(() =>
+    STUDENTS_MOCK.map(s => ({
+      ...s,
+      unlockedAvatars: s.unlockedAvatars || [s.avatar]
+    }))
+  );
   const [rewards, setRewards] = useState<Reward[]>(REWARDS_MOCK);
   const [auctions, setAuctions] = useState<AuctionItem[]>(() => [
     ...AUCTION_MOCK.active.map(item => ({ ...item, status: 'active' as const })),
@@ -181,8 +188,39 @@ export default function App() {
   };
 
   const handleViewHistory = (student: Student) => {
-    setHistoryStudent(student);
+    // Refresh the student object from newest local state to guarantee wardrobe updates
+    const newestStudent = students.find(s => s.id === student.id) || student;
+    setHistoryStudent(newestStudent);
     setIsHistoryOpen(true);
+  };
+
+  const handleUnlockAvatarSuccess = (studentName: string, avatarName: string, pointsPaid: number) => {
+    const newLog = {
+      id: `log-${Date.now()}`,
+      studentName: studentName,
+      activity: `解锁创意头像: ${avatarName}`,
+      points: -pointsPaid,
+      time: new Date().toISOString().replace('T', ' ').slice(0, 16),
+      type: 'deduct' as const
+    };
+    setPointLogs(prev => [newLog, ...prev]);
+
+    toast.success(`形象解锁成功！`, {
+      description: `${studentName} 成功花费 ${pointsPaid} 积分解锁并配戴【${avatarName}】🎨`,
+      icon: <Palette className="w-4 h-4 text-teal-500" />
+    });
+  };
+
+  const handleEquipAvatar = (studentId: string, avatarUrl: string) => {
+    setStudents(prev => prev.map(s => {
+      if (s.id === studentId) {
+        return { ...s, avatar: avatarUrl };
+      }
+      return s;
+    }));
+    
+    // Also update history mode modal visualization immediately
+    setHistoryStudent(prev => prev && prev.id === studentId ? { ...prev, avatar: avatarUrl } : prev);
   };
 
   const handleLogin = (userData: any) => {
@@ -320,43 +358,80 @@ export default function App() {
               exit={{ opacity: 0, y: -20 }}
               className="flex flex-col gap-8"
             >
-              <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                <div>
-                  <h2 className="text-5xl font-black text-brand tracking-tighter mb-2">积分礼品兑换</h2>
-                  <p className="text-slate-500 font-medium text-lg">将你的努力转化为实实在在的奖励</p>
-                </div>
-                
-                <div className="flex gap-2 flex-wrap">
-                  {[
-                    { id: 'all', label: '全部' },
-                    { id: 'stationery', label: '文具用品' },
-                    { id: 'campus', label: '校园特权' },
-                    { id: 'electronics', label: '电子产品' }
-                  ].map((cat) => (
-                    <button
-                      key={cat.id}
-                      onClick={() => setRewardCategory(cat.id)}
-                      className={`px-8 py-2.5 rounded-full text-sm font-bold transition-all shadow-sm ${
-                        rewardCategory === cat.id 
-                          ? 'bg-brand text-white shadow-brand/20' 
-                          : 'bg-white text-slate-500 hover:bg-slate-50'
-                      }`}
-                    >
-                      {cat.label}
-                    </button>
-                  ))}
-                </div>
+              <div className="flex gap-2.5 bg-slate-100 p-2 rounded-[2rem] w-fit shrink-0 relative z-10 select-none">
+                <button
+                  type="button"
+                  onClick={() => setShopMode('gifts')}
+                  className={`px-8 py-3.5 rounded-[1.8rem] text-sm font-black transition-all flex items-center gap-2 cursor-pointer ${
+                    shopMode === 'gifts'
+                      ? 'bg-white text-brand shadow-md shadow-slate-200'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <ShoppingBag className="w-4 h-4" />
+                  <span>积分礼品兑换</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShopMode('avatars')}
+                  className={`px-8 py-3.5 rounded-[1.8rem] text-sm font-black transition-all flex items-center gap-2 cursor-pointer ${
+                    shopMode === 'avatars'
+                      ? 'bg-white text-teal-600 shadow-md shadow-slate-200'
+                      : 'text-slate-500 hover:text-teal-600'
+                  }`}
+                >
+                  <Palette className="w-4 h-4" />
+                  <span>创意头像解锁</span>
+                </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {filteredRewards.map((reward) => (
-                  <RewardCard 
-                    key={reward.id} 
-                    reward={reward} 
-                    onRedeem={handleRedeem} 
-                  />
-                ))}
-              </div>
+              {shopMode === 'gifts' ? (
+                <>
+                  <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                    <div>
+                      <h2 className="text-5xl font-black text-brand tracking-tighter mb-2">积分礼品兑换</h2>
+                      <p className="text-slate-500 font-medium text-lg">将你的努力转化为实实在在的奖励</p>
+                    </div>
+                    
+                    <div className="flex gap-2 flex-wrap">
+                      {[
+                        { id: 'all', label: '全部' },
+                        { id: 'stationery', label: '文具用品' },
+                        { id: 'campus', label: '校园特权' },
+                        { id: 'electronics', label: '电子产品' }
+                      ].map((cat) => (
+                        <button
+                          key={cat.id}
+                          onClick={() => setRewardCategory(cat.id)}
+                          className={`px-8 py-2.5 rounded-full text-sm font-bold transition-all shadow-sm ${
+                            rewardCategory === cat.id 
+                              ? 'bg-brand text-white shadow-brand/20' 
+                              : 'bg-white text-slate-500 hover:bg-slate-50'
+                          }`}
+                        >
+                          {cat.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {filteredRewards.map((reward) => (
+                      <RewardCard 
+                        key={reward.id} 
+                        reward={reward} 
+                        onRedeem={handleRedeem} 
+                      />
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <AvatarShop 
+                  students={students}
+                  setStudents={setStudents}
+                  onUnlockSuccess={handleUnlockAvatarSuccess}
+                />
+              )}
             </motion.section>
           )}
 
@@ -553,6 +628,8 @@ export default function App() {
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
         student={historyStudent}
+        pointLogs={pointLogs}
+        onEquipAvatar={handleEquipAvatar}
       />
 
       <LoginModal 

@@ -4,7 +4,7 @@ export const STUDENTS_MOCK: Student[] = [
   {
     id: '1',
     name: '张晓明',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix',
+    avatar: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Felix',
     class: '初二 (3) 班',
     points: 9200,
     recentPoints: 11,
@@ -19,7 +19,7 @@ export const STUDENTS_MOCK: Student[] = [
   {
     id: '2',
     name: '李思源',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka',
+    avatar: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Felix',
     class: '初二 (3) 班',
     points: 8450,
     recentPoints: 10,
@@ -34,7 +34,7 @@ export const STUDENTS_MOCK: Student[] = [
   {
     id: '3',
     name: '王美丽',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Caleb',
+    avatar: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Felix',
     class: '初二 (3) 班',
     points: 7890,
     recentPoints: 0,
@@ -45,7 +45,7 @@ export const STUDENTS_MOCK: Student[] = [
   {
     id: '4',
     name: '陈语涵',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sasha',
+    avatar: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Felix',
     class: '初二 (3) 班',
     points: 2100,
     recentPoints: 4,
@@ -59,7 +59,7 @@ export const STUDENTS_MOCK: Student[] = [
   {
     id: '5',
     name: '黄宇航',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Krystal',
+    avatar: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Felix',
     class: '初二 (3) 班',
     points: 6400,
     mode: 'online',
@@ -68,7 +68,7 @@ export const STUDENTS_MOCK: Student[] = [
   {
     id: '6',
     name: '赵佳欣',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Mason',
+    avatar: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Felix',
     class: '初二 (3) 班',
     points: 5980,
     mode: 'offline',
@@ -77,7 +77,7 @@ export const STUDENTS_MOCK: Student[] = [
   {
     id: '7',
     name: '周杰伦',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Jack',
+    avatar: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Felix',
     class: '初二 (3) 班',
     points: 5500,
     mode: 'online',
@@ -86,7 +86,7 @@ export const STUDENTS_MOCK: Student[] = [
   {
     id: '8',
     name: '吴亦凡',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Oliver',
+    avatar: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Felix',
     class: '初二 (3) 班',
     points: 5100,
     mode: 'offline',
@@ -95,7 +95,7 @@ export const STUDENTS_MOCK: Student[] = [
   {
     id: '9',
     name: '郑爽',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sophie',
+    avatar: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Felix',
     class: '初二 (3) 班',
     points: 4800,
     mode: 'online',
@@ -104,7 +104,7 @@ export const STUDENTS_MOCK: Student[] = [
   {
     id: '10',
     name: '蔡徐坤',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Liam',
+    avatar: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Felix',
     class: '初二 (1) 班',
     points: 4500,
     mode: 'offline',
@@ -113,7 +113,7 @@ export const STUDENTS_MOCK: Student[] = [
   {
     id: '11',
     name: '易烊千玺',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Emma',
+    avatar: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Felix',
     class: '初二 (2) 班',
     points: 4200,
     mode: 'online',
